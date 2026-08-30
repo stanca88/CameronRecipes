@@ -126,7 +126,7 @@ export default function Home() {
   const setDay=(id:string,day:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,days:{...(plan.days||{}),[id]:day}}}});
   const weekLabel=weekRange(weekOffset);
 
-  useEffect(()=>{try{const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setRecipes(s.recipes||starterRecipes);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}}finally{setLoaded(true)}},[]);
+  useEffect(()=>{try{const params=new URLSearchParams(window.location.search);if(params.get("resetLocal")==="1"){localStorage.removeItem("cameron-family-table");params.delete("resetLocal");const newUrl=window.location.pathname+(params.toString()?"?"+params.toString():"");window.history.replaceState({},"",newUrl);}const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setRecipes(s.recipes||starterRecipes);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}}finally{setLoaded(true)}},[]);
   useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
   useEffect(()=>{
     if(!loaded)return;
