@@ -1,6 +1,4 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, History as HistoryIcon, Minus, MoreHorizontal, Plus, Search, ShoppingBasket, Trash2, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -9,23 +7,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AuthScreen } from "./components/AuthScreen";
+import { JoinFamilyScreen } from "./components/JoinFamilyScreen";
+import { supabase } from "./lib/supabase";
+import { useFamilyAuth } from "./lib/useFamilyAuth";
 
 type Ingredient = { name: string; amount: number; unit: string; category: string };
 type Recipe = { id: string; title: string; emoji: string; time: string; serves: number; author: string; ingredients: Ingredient[]; image?: string; directions?: string[]; sourceUrl?: string; sourceName?: string };
 type WeeklyPlan = { selected: string[]; servings: Record<string,number>; checked: string[]; chefs: Record<string,string>; days: Record<string,string> };
 type SavedWeek = { id: string; label: string; savedAt: string; meals: { id: string; title: string; emoji: string; people: number; chef?: string; day?: string }[] };
 
-const starterRecipes: Recipe[] = [
-  {id:"pasta",title:"Italian Pasta Salad",emoji:"🥗",time:"25 min",serves:6,author:"Maria",ingredients:[
-    {name:"rotini pasta",amount:1,unit:"lb",category:"Pantry"},{name:"cherry tomatoes",amount:2,unit:"cups",category:"Produce"},{name:"cucumber",amount:1,unit:"",category:"Produce"},{name:"red bell pepper",amount:1,unit:"",category:"Produce"},{name:"mozzarella pearls",amount:8,unit:"oz",category:"Dairy"},{name:"Italian dressing",amount:1,unit:"cup",category:"Pantry"}],directions:["Cook the pasta until al dente, then drain and rinse under cold water.","Chop the vegetables and combine them with the pasta and mozzarella.","Toss with Italian dressing and chill before serving."]},
-  {id:"chicken",title:"Lemon Herb Chicken",emoji:"🍋",time:"40 min",serves:4,author:"Dad",ingredients:[
-    {name:"chicken breasts",amount:4,unit:"",category:"Meat"},{name:"lemons",amount:2,unit:"",category:"Produce"},{name:"garlic cloves",amount:4,unit:"",category:"Produce"},{name:"olive oil",amount:3,unit:"tbsp",category:"Pantry"},{name:"baby potatoes",amount:1.5,unit:"lb",category:"Produce"}],directions:["Heat the oven to 425°F.","Coat the chicken and potatoes with lemon, garlic, olive oil, salt, and herbs.","Roast for 30–35 minutes, until the chicken is cooked through."]},
-  {id:"tacos",title:"Weeknight Turkey Tacos",emoji:"🌮",time:"20 min",serves:4,author:"Maya",ingredients:[
-    {name:"ground turkey",amount:1,unit:"lb",category:"Meat"},{name:"taco seasoning",amount:1,unit:"packet",category:"Pantry"},{name:"corn tortillas",amount:12,unit:"",category:"Bakery"},{name:"shredded lettuce",amount:2,unit:"cups",category:"Produce"},{name:"shredded cheese",amount:1,unit:"cup",category:"Dairy"},{name:"salsa",amount:1,unit:"jar",category:"Pantry"}],directions:["Brown the turkey in a skillet over medium heat.","Add taco seasoning and water, then simmer for 5 minutes.","Warm the tortillas and serve with the toppings."]}
-];
+const emptyPlan = ():WeeklyPlan => ({selected:[],servings:{},checked:[],chefs:{},days:{}});
 
 function weekStart(offset = 0, date = new Date()) {
   const start = new Date(date); const day = start.getDay();
@@ -81,11 +77,54 @@ function parseIngredientLine(line:string):Ingredient {
   return{name,amount,unit:match[2]||"",category:categoryFor(name)};
 }
 
-export default function Home() {
-  const [recipes,setRecipes]=useState(starterRecipes);
+type RecipeRow = {
+  id: string; name: string; servings: number | null; image_url: string | null; source_url: string | null;
+  source_name: string | null; emoji: string | null; time_label: string | null; ingredients: unknown;
+  directions: unknown; created_by: string | null;
+};
+
+function recipeFromRow(row: RecipeRow, authorName: string): Recipe {
+  return {
+    id: row.id,
+    title: row.name,
+    emoji: row.emoji || "🍽️",
+    time: row.time_label || "Family recipe",
+    serves: row.servings || 4,
+    author: authorName,
+    ingredients: Array.isArray(row.ingredients) ? row.ingredients as Ingredient[] : [],
+    image: row.image_url || undefined,
+    directions: Array.isArray(row.directions) ? row.directions as string[] : undefined,
+    sourceUrl: row.source_url || undefined,
+    sourceName: row.source_name || undefined,
+  };
+}
+
+type PlanRow = { week_key: string; selected: string[] | null; servings: Record<string,number> | null; checked: string[] | null; chefs: Record<string,string> | null; days: Record<string,string> | null };
+
+function planFromRow(row?: PlanRow | null): WeeklyPlan {
+  if (!row) return emptyPlan();
+  return { selected: row.selected || [], servings: row.servings || {}, checked: row.checked || [], chefs: row.chefs || {}, days: row.days || {} };
+}
+
+export default function App() {
+  const auth = useFamilyAuth();
+  if (auth.status === "loading") {
+    return <main className="grid min-h-screen place-items-center bg-[#faf9f5]"><Spinner className="text-[#45644e]" /></main>;
+  }
+  if (auth.status === "signed-out") return <AuthScreen auth={auth} />;
+  if (auth.status === "needs-join") return <JoinFamilyScreen auth={auth} />;
+  return <FamilyTable auth={auth} />;
+}
+
+function FamilyTable({ auth }: { auth: ReturnType<typeof useFamilyAuth> }) {
+  const userId = auth.user!.id;
+  const displayName = auth.profile?.display_name || auth.user?.email || "Family";
+
+  const [recipes,setRecipes]=useState<Recipe[]>([]);
   const [weekOffset,setWeekOffset]=useState<0|1>(0);
-  const [plans,setPlans]=useState<Record<string,WeeklyPlan>>({[weekKey(0)]:{selected:["pasta","chicken"],servings:{pasta:4,chicken:4},checked:[],chefs:{},days:{}}});
+  const [plans,setPlans]=useState<Record<string,WeeklyPlan>>({});
   const [history,setHistory]=useState<SavedWeek[]>([]);
+  const [dataLoading,setDataLoading]=useState(true);
   const [query,setQuery]=useState("");
   const [open,setOpen]=useState(false);
   const [title,setTitle]=useState("");
@@ -99,25 +138,68 @@ export default function Home() {
   const [addMode,setAddMode]=useState<"url"|"review"|"manual">("url");
   const [importing,setImporting]=useState(false);
   const [importError,setImportError]=useState("");
-  const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("recipes");
   const activeWeekKey=weekKey(weekOffset);
-  const activePlan=plans[activeWeekKey]||{selected:[],servings:{},checked:[],chefs:{},days:{}};
+  const activePlan=plans[activeWeekKey]||emptyPlan();
   const selected=activePlan.selected;
   const servings=activePlan.servings;
   const checked=activePlan.checked;
   const chefs=activePlan.chefs||{};
   const days=activePlan.days||{};
-  const emptyPlan=():WeeklyPlan=>({selected:[],servings:{},checked:[],chefs:{},days:{}});
-  const setSelected=(update:(current:string[])=>string[])=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,selected:update(plan.selected)}}});
-  const setServings=(update:(current:Record<string,number>)=>Record<string,number>)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,servings:update(plan.servings)}}});
-  const setChecked=(update:(current:string[])=>string[])=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,checked:update(plan.checked)}}});
-  const setChef=(id:string,name:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,chefs:{...(plan.chefs||{}),[id]:name}}}});
-  const setDay=(id:string,day:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,days:{...(plan.days||{}),[id]:day}}}});
   const weekLabel=weekRange(weekOffset);
 
-  useEffect(()=>{try{const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setRecipes(s.recipes||starterRecipes);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}}finally{setLoaded(true)}},[]);
-  useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
+  const fetchRecipes = useCallback(async () => {
+    const [{ data: rows }, { data: profiles }] = await Promise.all([
+      supabase.from("cameron_recipes").select("*").order("created_at",{ ascending:false }),
+      supabase.from("cameron_profiles").select("*"),
+    ]);
+    const names = Object.fromEntries((profiles||[]).map((p:{user_id:string;display_name:string|null})=>[p.user_id,p.display_name]));
+    setRecipes((rows||[]).map((row: RecipeRow) => recipeFromRow(row, (row.created_by && names[row.created_by]) || "Family")));
+  }, []);
+
+  const fetchPlans = useCallback(async () => {
+    const keys=[weekKey(0),weekKey(1)];
+    const { data } = await supabase.from("cameron_weekly_plans").select("*").in("week_key",keys);
+    const next:Record<string,WeeklyPlan>={};
+    for(const key of keys) next[key]=planFromRow((data||[]).find((row:PlanRow)=>row.week_key===key));
+    setPlans(next);
+  }, []);
+
+  const fetchHistory = useCallback(async () => {
+    const { data } = await supabase.from("cameron_weekly_history").select("*").order("saved_at",{ ascending:false });
+    setHistory((data||[]).map((row:{id:string;label:string;saved_at:string;meals:SavedWeek["meals"]})=>({ id:row.id, label:row.label, savedAt:row.saved_at, meals:row.meals||[] })));
+  }, []);
+
+  useEffect(()=>{
+    let active=true;
+    (async ()=>{
+      await Promise.all([fetchRecipes(),fetchPlans(),fetchHistory()]);
+      if(active) setDataLoading(false);
+    })();
+    const channel = supabase.channel("family-table-sync")
+      .on("postgres_changes",{ event:"*", schema:"public", table:"cameron_recipes" }, fetchRecipes)
+      .on("postgres_changes",{ event:"*", schema:"public", table:"cameron_weekly_plans" }, fetchPlans)
+      .on("postgres_changes",{ event:"*", schema:"public", table:"cameron_weekly_history" }, fetchHistory)
+      .subscribe();
+    return ()=>{ active=false; supabase.removeChannel(channel); };
+  },[fetchRecipes,fetchPlans,fetchHistory]);
+
+  const updatePlan = useCallback((key:string, updater:(plan:WeeklyPlan)=>WeeklyPlan)=>{
+    setPlans(all=>{
+      const next=updater(all[key]||emptyPlan());
+      void supabase.from("cameron_weekly_plans").upsert({
+        week_key:key, selected:next.selected, servings:next.servings, checked:next.checked,
+        chefs:next.chefs, days:next.days, updated_by:userId, updated_at:new Date().toISOString(),
+      });
+      return {...all,[key]:next};
+    });
+  },[userId]);
+
+  const setSelected=(update:(current:string[])=>string[])=>updatePlan(activeWeekKey,plan=>({...plan,selected:update(plan.selected)}));
+  const setServings=(update:(current:Record<string,number>)=>Record<string,number>)=>updatePlan(activeWeekKey,plan=>({...plan,servings:update(plan.servings)}));
+  const setChecked=(update:(current:string[])=>string[])=>updatePlan(activeWeekKey,plan=>({...plan,checked:update(plan.checked)}));
+  const setChef=(id:string,name:string)=>updatePlan(activeWeekKey,plan=>({...plan,chefs:{...(plan.chefs||{}),[id]:name}}));
+  const setDay=(id:string,day:string)=>updatePlan(activeWeekKey,plan=>({...plan,days:{...(plan.days||{}),[id]:day}}));
 
   const grocery=useMemo(()=>{
     const items=new Map<string,Ingredient>();
@@ -135,12 +217,63 @@ export default function Home() {
   const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);window.scrollTo({top:0,behavior:"smooth"})};
   const parsedIngredients=()=>ingredients.split("\n").filter(Boolean).map(parseIngredientLine);
   const resetAdd=()=>{setTitle("");setUrl("");setIngredients("");setDirections("");setImageUrl("");setSourceName("");setAddMode("url");setImportError("");setImporting(false)};
-  const saveRecipe=()=>{if(!title.trim())return;const id=crypto.randomUUID();setRecipes(v=>[{id,title:title.trim(),emoji:"🍽️",time:"Family recipe",serves:4,author:"Family",ingredients:parsedIngredients(),directions:directions.split("\n").filter(Boolean).map(x=>x.trim()),image:imageUrl||undefined,sourceUrl:url||undefined,sourceName:sourceName||undefined},...v]);setSelected(v=>v.includes(id)?v:[...v,id]);setServings(v=>({...v,[id]:4}));resetAdd();setOpen(false);setView("plan")};
-  const importRecipe=async()=>{if(!url.trim())return;setImporting(true);setImportError("");try{const response=await fetch("/api/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({url})});const data=await response.json();if(!response.ok)throw new Error(data.error||"We couldn't import that recipe.");setTitle(data.title||"");setIngredients((data.ingredients||[]).join("\n"));setDirections((data.directions||[]).join("\n"));setImageUrl(data.image||"");setSourceName(data.sourceName||"");setAddMode("review")}catch(error){setImportError(error instanceof Error?error.message:"We couldn't import that recipe.")}finally{setImporting(false)}};
-  const saveWeek=()=>{const meals=recipes.filter(r=>selected.includes(r.id)).map(r=>({id:r.id,title:r.title,emoji:r.emoji,people:servings[r.id]||4,chef:chefs[r.id]?.trim()||undefined,day:days[r.id]?.trim()||undefined}));if(!meals.length)return;setHistory(v=>[{id:crypto.randomUUID(),label:weekLabel,savedAt:new Date().toISOString(),meals},...v.filter(w=>w.label!==weekLabel)]);setView("history")};
-  const deleteRecipe=(id:string)=>{setRecipes(v=>v.filter(recipe=>recipe.id!==id));setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>{const nextServings={...plan.servings};const nextChefs={...(plan.chefs||{})};const nextDays={...(plan.days||{})};delete nextServings[id];delete nextChefs[id];delete nextDays[id];return[key,{...plan,selected:plan.selected.filter(recipeId=>recipeId!==id),servings:nextServings,chefs:nextChefs,days:nextDays}]})));setActiveRecipe(null)};
+
+  const saveRecipe=async ()=>{
+    if(!title.trim())return;
+    const { data, error } = await supabase.from("cameron_recipes").insert({
+      name:title.trim(), servings:4, emoji:"🍽️", time_label:"Family recipe",
+      ingredients:parsedIngredients(), directions:directions.split("\n").filter(Boolean).map(x=>x.trim()),
+      image_url:imageUrl||null, source_url:url||null, source_name:sourceName||null, created_by:userId,
+    }).select().single();
+    if(error||!data){setImportError(error?.message||"We couldn't save that recipe.");return}
+    await fetchRecipes();
+    const id=data.id as string;
+    setSelected(v=>v.includes(id)?v:[...v,id]);
+    setServings(v=>({...v,[id]:4}));
+    resetAdd();setOpen(false);setView("plan");
+  };
+
+  const importRecipe=async()=>{
+    if(!url.trim())return;setImporting(true);setImportError("");
+    try{
+      const token=auth.session?.access_token;
+      const response=await fetch("/api/import",{method:"POST",headers:{"content-type":"application/json",...(token?{authorization:`Bearer ${token}`}:{})},body:JSON.stringify({url})});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||"We couldn't import that recipe.");
+      setTitle(data.title||"");setIngredients((data.ingredients||[]).join("\n"));setDirections((data.directions||[]).join("\n"));setImageUrl(data.image||"");setSourceName(data.sourceName||"");setAddMode("review")
+    }catch(error){setImportError(error instanceof Error?error.message:"We couldn't import that recipe.")}finally{setImporting(false)}
+  };
+
+  const saveWeek=async ()=>{
+    const meals=recipes.filter(r=>selected.includes(r.id)).map(r=>({id:r.id,title:r.title,emoji:r.emoji,people:servings[r.id]||4,chef:chefs[r.id]?.trim()||undefined,day:days[r.id]?.trim()||undefined}));
+    if(!meals.length)return;
+    await supabase.from("cameron_weekly_history").delete().eq("label",weekLabel);
+    await supabase.from("cameron_weekly_history").insert({ label:weekLabel, meals, saved_by:userId });
+    await fetchHistory();
+    setView("history");
+  };
+
+  const deleteRecipe=async (id:string)=>{
+    await supabase.from("cameron_recipes").delete().eq("id",id);
+    const { data: rows } = await supabase.from("cameron_weekly_plans").select("*");
+    for(const row of (rows||[]) as PlanRow[]){
+      if(!(row.selected||[]).includes(id))continue;
+      const nextServings={...(row.servings||{})};delete nextServings[id];
+      const nextChefs={...(row.chefs||{})};delete nextChefs[id];
+      const nextDays={...(row.days||{})};delete nextDays[id];
+      await supabase.from("cameron_weekly_plans").update({
+        selected:(row.selected||[]).filter(recipeId=>recipeId!==id), servings:nextServings, chefs:nextChefs, days:nextDays,
+      }).eq("week_key",row.week_key);
+    }
+    await Promise.all([fetchRecipes(),fetchPlans()]);
+    setActiveRecipe(null);
+  };
 
   const nav=[{value:"recipes",label:"Recipes",icon:BookOpen},{value:"plan",label:"Plan",icon:ChefHat},{value:"shop",label:"Shop",icon:ShoppingBasket}];
+
+  if(dataLoading){
+    return <main className="grid min-h-screen place-items-center bg-[#faf9f5]"><Spinner className="text-[#45644e]" /></main>;
+  }
 
   return <main className="min-h-screen bg-[#faf9f5] text-[#1f3529]">
     <Dialog open={open} onOpenChange={value=>{setOpen(value);if(!value)resetAdd()}}><DialogContent className="bg-[#fffdf8]"><DialogHeader><DialogTitle>{addMode==="url"?"Add from a recipe link":addMode==="review"?"Review imported recipe":"Add a recipe manually"}</DialogTitle></DialogHeader>
@@ -189,7 +322,8 @@ export default function Home() {
         </div>
 
         <TabsContent value="recipes">
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{recipes.filter(r=>r.title.toLowerCase().includes(query.toLowerCase())).map(r=><article key={r.id} onClick={()=>openRecipe(r)} className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-white transition ${selected.includes(r.id)?"border-[#7ea087] shadow-[0_0_0_2px_rgba(65,98,75,.12)]":"border-[#e1ddd3] hover:-translate-y-1 hover:shadow-lg"}`}><div className="absolute left-3 top-3 z-10"><TooltipProvider><Tooltip><TooltipTrigger aria-label={selected.includes(r.id)?`Remove ${r.title} from week`:`Add ${r.title} to week`} onClick={event=>{event.stopPropagation();toggle(r.id)}} className={`grid size-10 place-items-center rounded-full border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315d43]/35 ${selected.includes(r.id)?"border-[#315d43] bg-[#315d43] text-white hover:bg-[#274d37]":"border-[#d8d5cd] bg-white/95 text-[#315d43] hover:bg-[#edf3ee]"}`}>{selected.includes(r.id)?<Check size={19}/>:<Plus size={20}/>}</TooltipTrigger><TooltipContent side="top" sideOffset={6} className="bg-[#1f3529] text-white">{selected.includes(r.id)?"Remove from week":"Add to week"}</TooltipContent></Tooltip></TooltipProvider></div><div className="absolute right-3 top-3 z-10 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"><DropdownMenu><DropdownMenuTrigger render={<button onClick={event=>event.stopPropagation()} aria-label={`More actions for ${r.title}`} className="grid size-10 place-items-center rounded-lg border border-[#d8d5cd] bg-white/95 text-[#304439] shadow-sm hover:bg-[#f1f4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315d43]/35"/>}><MoreHorizontal size={20}/></DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-44 bg-white"><DropdownMenuItem variant="destructive" onClick={event=>{event.stopPropagation();setRecipeToDelete(r)}}><Trash2/>Delete recipe</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>{r.image?<img src={r.image} alt={r.title} className="h-44 w-full object-cover"/>:<div className="grid h-36 place-items-center bg-[#edf2eb] text-5xl">{r.emoji}</div>}<div className="min-w-0 p-5"><h3 className="truncate font-serif text-xl font-bold" title={r.title}>{r.title}</h3><p className="mt-1 text-sm text-[#6d786f]">{r.sourceUrl?<a href={r.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-[#45644e] underline decoration-[#45644e]/35 underline-offset-2 hover:decoration-[#45644e]" onClick={event=>event.stopPropagation()}>{r.sourceName||"Recipe source"}</a>:(r.time==="Imported recipe"?"Family recipe":r.time)}</p><div className="mt-5 border-t border-[#ebe7df] pt-4"><span className="text-xs text-[#788078]">Added by {r.author}</span></div></div></article>)}</div>
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{recipes.filter(r=>r.title.toLowerCase().includes(query.toLowerCase())).map(r=><article key={r.id} onClick={()=>openRecipe(r)} className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-white transition ${selected.includes(r.id)?"border-[#7ea087] shadow-[0_0_0_2px_rgba(65,98,75,.12)]":"border-[#e1ddd3] hover:-translate-y-1 hover:shadow-lg"}`}><div className="absolute left-3 top-3 z-10"><TooltipProvider><Tooltip><TooltipTrigger aria-label={selected.includes(r.id)?`Remove ${r.title} from week`:`Add ${r.title} to week`} onClick={event=>{event.stopPropagation();toggle(r.id)}} className={`grid size-10 place-items-center rounded-full border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315d43]/35 ${selected.includes(r.id)?"border-[#315d43] bg-[#315d43] text-white hover:bg-[#274d37]":"border-[#d8d5cd] bg-white/95 text-[#315d43] hover:bg-[#edf3ee]"}`}>{selected.includes(r.id)?<Check size={19}/>:<Plus size={20}/>}</TooltipTrigger><TooltipContent side="top" sideOffset={6} className="bg-[#1f3529] text-white">{selected.includes(r.id)?"Remove from week":"Add to week"}</TooltipContent></Tooltip></TooltipProvider></div><div className="absolute right-3 top-3 z-10 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"><DropdownMenu><DropdownMenuTrigger asChild><button onClick={event=>event.stopPropagation()} aria-label={`More actions for ${r.title}`} className="grid size-10 place-items-center rounded-lg border border-[#d8d5cd] bg-white/95 text-[#304439] shadow-sm hover:bg-[#f1f4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315d43]/35"><MoreHorizontal size={20}/></button></DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-44 bg-white"><DropdownMenuItem variant="destructive" onClick={event=>{event.stopPropagation();setRecipeToDelete(r)}}><Trash2/>Delete recipe</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>{r.image?<img src={r.image} alt={r.title} className="h-44 w-full object-cover"/>:<div className="grid h-36 place-items-center bg-[#edf2eb] text-5xl">{r.emoji}</div>}<div className="min-w-0 p-5"><h3 className="truncate font-serif text-xl font-bold" title={r.title}>{r.title}</h3><p className="mt-1 text-sm text-[#6d786f]">{r.sourceUrl?<a href={r.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-[#45644e] underline decoration-[#45644e]/35 underline-offset-2 hover:decoration-[#45644e]" onClick={event=>event.stopPropagation()}>{r.sourceName||"Recipe source"}</a>:(r.time==="Imported recipe"?"Family recipe":r.time)}</p><div className="mt-5 border-t border-[#ebe7df] pt-4"><span className="text-xs text-[#788078]">Added by {r.author}</span></div></div></article>)}</div>
+          {!recipes.length && <div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center"><BookOpen className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">No recipes yet. Add your first family favorite.</p></div>}
         </TabsContent>
 
         <TabsContent value="plan"><div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><h2 className="font-serif text-2xl font-bold">{weekOffset===0?"This week’s meals":"Next week’s meals"}</h2><p className="text-sm text-[#6d786f]">{weekLabel} · Set servings separately for every recipe.</p></div><Button onClick={saveWeek} disabled={!selected.length} className="rounded-full bg-[#45644e] text-white"><Archive/>Save this week</Button></div><div className="space-y-3">{recipes.filter(r=>selected.includes(r.id)).map((r,i)=><div key={r.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-4 sm:flex-nowrap sm:gap-4">{r.image?<img src={r.image} alt="" className="size-14 shrink-0 rounded-xl object-cover sm:size-16"/>:<div className="grid size-14 shrink-0 place-items-center rounded-xl bg-[#eee5d4] text-2xl sm:size-16">{r.emoji}</div>}<div className="min-w-0 flex-1"><Input aria-label={`Day for ${r.title}`} value={days[r.id]||""} onChange={event=>setDay(r.id,event.target.value)} placeholder={`Meal ${i+1}`} className="h-6 w-28 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-xs font-semibold uppercase tracking-wide text-[#9a735e] shadow-none placeholder:text-[#9a9f9b] hover:border-[#ddd4c3] focus-visible:border-[#9a735e] focus-visible:ring-0"/><h3 className="truncate font-serif text-lg font-bold">{r.title}</h3></div><Input aria-label={`Chef cooking ${r.title}`} value={chefs[r.id]||""} onChange={event=>setChef(r.id,event.target.value)} placeholder="Chef cooking" className="order-3 h-9 w-full rounded-lg border-transparent bg-transparent px-2 text-sm shadow-none transition placeholder:text-[#9a9f9b] hover:bg-[#f6f2ea] focus-visible:border-[#c9d6cb] focus-visible:bg-white sm:order-none sm:w-36"/><div className="order-4 flex w-full items-center justify-between rounded-xl bg-[#f2ecdf] p-2 sm:order-none sm:w-auto sm:justify-start"><span className="ml-1 text-sm font-medium sm:hidden">Cooking for</span><Button size="icon" variant="ghost" className="size-8 rounded-full" onClick={()=>changeServings(r.id,-1)}><Minus size={15}/></Button><strong className="min-w-20 text-center text-sm">{servings[r.id]||4} people</strong><Button size="icon" variant="ghost" className="size-8 rounded-full" onClick={()=>changeServings(r.id,1)}><Plus size={15}/></Button></div><Button size="icon" variant="ghost" onClick={()=>toggle(r.id)} aria-label="Remove meal"><X/></Button></div>)}{selected.length===0&&<div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center"><ChefHat className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div></TabsContent>
@@ -200,7 +334,10 @@ export default function Home() {
       </Tabs>
       </>}
     </div>
-    <AlertDialog open={!!recipeToDelete} onOpenChange={value=>{if(!value)setRecipeToDelete(null)}}><AlertDialogContent className="bg-[#fffdf8]"><AlertDialogHeader><AlertDialogTitle>Delete “{recipeToDelete?.title}”?</AlertDialogTitle><AlertDialogDescription>This removes the recipe from your collection, this week’s plan, and the shopping list. Previously saved week history will remain unchanged.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep recipe</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={()=>recipeToDelete&&deleteRecipe(recipeToDelete.id)}>Delete recipe</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-    <footer className="mt-8 border-t border-[#ddd4c3] py-6 text-center text-sm text-[#7b837c]">Made for the Cameron family · Saved automatically on this device</footer>
+    <AlertDialog open={!!recipeToDelete} onOpenChange={value=>{if(!value)setRecipeToDelete(null)}}><AlertDialogContent className="bg-[#fffdf8]"><AlertDialogHeader><AlertDialogTitle>Delete “{recipeToDelete?.title}”?</AlertDialogTitle><AlertDialogDescription>This removes the recipe from your family's collection, this week's plan, and the shopping list. Previously saved week history will remain unchanged.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep recipe</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={()=>recipeToDelete&&deleteRecipe(recipeToDelete.id)}>Delete recipe</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <footer className="mt-8 flex flex-col items-center gap-1 border-t border-[#ddd4c3] py-6 text-center text-sm text-[#7b837c]">
+      <span>Made for the Cameron family · Synced for everyone signed in</span>
+      <span>Signed in as {displayName} · <button className="underline decoration-[#7b837c]/50 underline-offset-2 hover:text-[#45644e]" onClick={()=>auth.signOut()}>Sign out</button></span>
+    </footer>
   </main>;
 }
