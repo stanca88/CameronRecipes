@@ -1,0 +1,171 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Archive, ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, History as HistoryIcon, Minus, MoreHorizontal, Plus, Search, ShoppingBasket, Trash2, X } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+
+type Ingredient = { name: string; amount: number; unit: string; category: string };
+type Recipe = { id: string; title: string; emoji: string; time: string; serves: number; author: string; ingredients: Ingredient[]; image?: string; directions?: string[]; sourceUrl?: string; sourceName?: string };
+type SavedWeek = { id: string; label: string; savedAt: string; meals: { id: string; title: string; emoji: string; people: number }[] };
+
+const starterRecipes: Recipe[] = [
+  {id:"pasta",title:"Italian Pasta Salad",emoji:"🥗",time:"25 min",serves:6,author:"Maria",ingredients:[
+    {name:"rotini pasta",amount:1,unit:"lb",category:"Pantry"},{name:"cherry tomatoes",amount:2,unit:"cups",category:"Produce"},{name:"cucumber",amount:1,unit:"",category:"Produce"},{name:"red bell pepper",amount:1,unit:"",category:"Produce"},{name:"mozzarella pearls",amount:8,unit:"oz",category:"Dairy"},{name:"Italian dressing",amount:1,unit:"cup",category:"Pantry"}],directions:["Cook the pasta until al dente, then drain and rinse under cold water.","Chop the vegetables and combine them with the pasta and mozzarella.","Toss with Italian dressing and chill before serving."]},
+  {id:"chicken",title:"Lemon Herb Chicken",emoji:"🍋",time:"40 min",serves:4,author:"Dad",ingredients:[
+    {name:"chicken breasts",amount:4,unit:"",category:"Meat"},{name:"lemons",amount:2,unit:"",category:"Produce"},{name:"garlic cloves",amount:4,unit:"",category:"Produce"},{name:"olive oil",amount:3,unit:"tbsp",category:"Pantry"},{name:"baby potatoes",amount:1.5,unit:"lb",category:"Produce"}],directions:["Heat the oven to 425°F.","Coat the chicken and potatoes with lemon, garlic, olive oil, salt, and herbs.","Roast for 30–35 minutes, until the chicken is cooked through."]},
+  {id:"tacos",title:"Weeknight Turkey Tacos",emoji:"🌮",time:"20 min",serves:4,author:"Maya",ingredients:[
+    {name:"ground turkey",amount:1,unit:"lb",category:"Meat"},{name:"taco seasoning",amount:1,unit:"packet",category:"Pantry"},{name:"corn tortillas",amount:12,unit:"",category:"Bakery"},{name:"shredded lettuce",amount:2,unit:"cups",category:"Produce"},{name:"shredded cheese",amount:1,unit:"cup",category:"Dairy"},{name:"salsa",amount:1,unit:"jar",category:"Pantry"}],directions:["Brown the turkey in a skillet over medium heat.","Add taco seasoning and water, then simmer for 5 minutes.","Warm the tortillas and serve with the toppings."]}
+];
+
+function weekRange(date = new Date()) {
+  const start = new Date(date); const day = start.getDay();
+  start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
+  const end = new Date(start); end.setDate(start.getDate() + 6);
+  const left = start.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+  const right = end.toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" });
+  return `${left} – ${right}`;
+}
+
+function categoryFor(name:string) {
+  const value=name.toLowerCase();
+  if(/chicken|beef|turkey|pork|sausage|bacon|salmon|shrimp|fish/.test(value)) return "Meat & seafood";
+  if(/milk|cheese|cream|yogurt|butter|egg/.test(value)) return "Dairy & eggs";
+  if(/bread|tortilla|bun|roll|pita/.test(value)) return "Bakery";
+  if(/tomato|onion|garlic|pepper|lettuce|lemon|lime|potato|cucumber|apple|carrot|celery|herb|parsley|basil|cilantro/.test(value)) return "Produce";
+  return "Pantry";
+}
+
+function normalizeIngredient(raw:unknown):Ingredient|null {
+  if(typeof raw==="string") return parseIngredientLine(raw);
+  if(!raw||typeof raw!=="object") return null;
+  const item=raw as Partial<Ingredient>;
+  const name=typeof item.name==="string"?item.name.trim():"";
+  if(!name)return null;
+  return {name,amount:Number.isFinite(Number(item.amount))?Number(item.amount):1,unit:typeof item.unit==="string"?item.unit:"",category:typeof item.category==="string"&&item.category?item.category:categoryFor(name)};
+}
+
+function parseIngredientLine(line:string):Ingredient {
+  const clean=line.trim();
+  const normalized=clean.replace(/^½/,"1/2 ").replace(/^¼/,"1/4 ").replace(/^¾/,"3/4 ").replace(/^⅓/,"1/3 ").replace(/^⅔/,"2/3 ");
+  const match=normalized.match(/^(\d+(?:\.\d+)?|\d+\/\d+)\s*(cups?|tablespoons?|tbsp|teaspoons?|tsp|ounces?|oz|pounds?|lbs?|lb|grams?|g|kg|ml|liters?|l)?\s*(.*)$/i);
+  if(!match)return{name:clean,amount:1,unit:"",category:categoryFor(clean)};
+  const rawAmount=match[1]; const amount=rawAmount.includes("/")?Number(rawAmount.split("/")[0])/Number(rawAmount.split("/")[1]):Number(rawAmount);
+  const name=(match[3]||clean).replace(/^of\s+/i,"").trim();
+  return{name,amount,unit:match[2]||"",category:categoryFor(name)};
+}
+
+export default function Home() {
+  const [recipes,setRecipes]=useState(starterRecipes);
+  const [selected,setSelected]=useState(["pasta","chicken"]);
+  const [servings,setServings]=useState<Record<string,number>>({pasta:4,chicken:4});
+  const [checked,setChecked]=useState<string[]>([]);
+  const [history,setHistory]=useState<SavedWeek[]>([]);
+  const [query,setQuery]=useState("");
+  const [open,setOpen]=useState(false);
+  const [title,setTitle]=useState("");
+  const [url,setUrl]=useState("");
+  const [ingredients,setIngredients]=useState("");
+  const [directions,setDirections]=useState("");
+  const [imageUrl,setImageUrl]=useState("");
+  const [sourceName,setSourceName]=useState("");
+  const [activeRecipe,setActiveRecipe]=useState<Recipe|null>(null);
+  const [recipeToDelete,setRecipeToDelete]=useState<Recipe|null>(null);
+  const [addMode,setAddMode]=useState<"url"|"review"|"manual">("url");
+  const [importing,setImporting]=useState(false);
+  const [importError,setImportError]=useState("");
+  const [loaded,setLoaded]=useState(false);
+  const [view,setView]=useState("recipes");
+  const weekLabel=weekRange();
+
+  useEffect(()=>{try{const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setRecipes(s.recipes||starterRecipes);setSelected(s.selected||[]);setChecked(s.checked||[]);setHistory(s.history||[]);setServings(s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])))}}finally{setLoaded(true)}},[]);
+  useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,selected,servings,checked,history}))},[loaded,recipes,selected,servings,checked,history]);
+
+  const grocery=useMemo(()=>{
+    const items=new Map<string,Ingredient>();
+    recipes.filter(r=>selected.includes(r.id)).forEach(r=>(Array.isArray(r.ingredients)?r.ingredients:[]).forEach(raw=>{
+      const i=normalizeIngredient(raw); if(!i)return;
+      const key=`${i.name.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
+      items.set(key,{...i,amount:(old?.amount||0)+(i.amount*people/(r.serves||4))});
+    })); return [...items.values()].sort((a,b)=>a.category.localeCompare(b.category));
+  },[recipes,selected,servings]);
+  const categories=[...new Set(grocery.map(i=>i.category))];
+
+  const toggle=(id:string)=>{setSelected(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);setServings(v=>({...v,[id]:v[id]||4}))};
+  const changeServings=(id:string,delta:number)=>setServings(v=>({...v,[id]:Math.max(1,(v[id]||4)+delta)}));
+  const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);window.scrollTo({top:0,behavior:"smooth"})};
+  const parsedIngredients=()=>ingredients.split("\n").filter(Boolean).map(parseIngredientLine);
+  const resetAdd=()=>{setTitle("");setUrl("");setIngredients("");setDirections("");setImageUrl("");setSourceName("");setAddMode("url");setImportError("");setImporting(false)};
+  const saveRecipe=()=>{if(!title.trim())return;const id=crypto.randomUUID();setRecipes(v=>[{id,title:title.trim(),emoji:"🍽️",time:"Family recipe",serves:4,author:"Family",ingredients:parsedIngredients(),directions:directions.split("\n").filter(Boolean).map(x=>x.trim()),image:imageUrl||undefined,sourceUrl:url||undefined,sourceName:sourceName||undefined},...v]);setSelected(v=>v.includes(id)?v:[...v,id]);setServings(v=>({...v,[id]:4}));resetAdd();setOpen(false);setView("plan")};
+  const importRecipe=async()=>{if(!url.trim())return;setImporting(true);setImportError("");try{const response=await fetch("/api/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({url})});const data=await response.json();if(!response.ok)throw new Error(data.error||"We couldn't import that recipe.");setTitle(data.title||"");setIngredients((data.ingredients||[]).join("\n"));setDirections((data.directions||[]).join("\n"));setImageUrl(data.image||"");setSourceName(data.sourceName||"");setAddMode("review")}catch(error){setImportError(error instanceof Error?error.message:"We couldn't import that recipe.")}finally{setImporting(false)}};
+  const saveWeek=()=>{const meals=recipes.filter(r=>selected.includes(r.id)).map(r=>({id:r.id,title:r.title,emoji:r.emoji,people:servings[r.id]||4}));if(!meals.length)return;setHistory(v=>[{id:crypto.randomUUID(),label:weekLabel,savedAt:new Date().toISOString(),meals},...v.filter(w=>w.label!==weekLabel)]);setView("history")};
+  const deleteRecipe=(id:string)=>{setRecipes(v=>v.filter(recipe=>recipe.id!==id));setSelected(v=>v.filter(recipeId=>recipeId!==id));setServings(v=>{const next={...v};delete next[id];return next});setActiveRecipe(null)};
+
+  const nav=[{value:"recipes",label:"Recipes",icon:BookOpen},{value:"plan",label:"This week",icon:ChefHat},{value:"shop",label:"Shop",icon:ShoppingBasket},{value:"history",label:"History",icon:HistoryIcon}];
+
+  return <main className="min-h-screen bg-[#faf9f5] text-[#1f3529]">
+    <header className="border-b border-[#e5e1d8] bg-[#fdfcf9]/95"><div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
+      <div className="flex items-center gap-3"><div className="grid size-9 place-items-center rounded-full bg-[#315d43] text-sm font-bold text-white">CF</div><div><h1 className="font-serif text-lg font-bold sm:text-xl">Cameron Family Table</h1><p className="hidden text-xs text-[#6d786f] sm:block">Recipes we love, all in one place</p></div></div>
+      <Dialog open={open} onOpenChange={value=>{setOpen(value);if(!value)resetAdd()}}><DialogTrigger render={<Button aria-label="Add a family recipe" className="h-11 rounded-lg border border-[#244832] bg-[#315d43] px-4 font-bold text-white shadow-[0_3px_0_#1f3e2c,0_6px_14px_rgba(31,62,44,.18)] transition hover:-translate-y-0.5 hover:bg-[#274d37] hover:shadow-[0_4px_0_#1f3e2c,0_8px_18px_rgba(31,62,44,.22)] active:translate-y-0.5 active:shadow-[0_1px_0_#1f3e2c] focus-visible:ring-2 focus-visible:ring-[#315d43]/35 sm:px-5"/>}><Plus size={18} strokeWidth={2.5}/><span>Add recipe</span></DialogTrigger><DialogContent className="bg-[#fffdf8]"><DialogHeader><DialogTitle>{addMode==="url"?"Add from a recipe link":addMode==="review"?"Review imported recipe":"Add a recipe manually"}</DialogTitle></DialogHeader>
+        {addMode==="url"&&<div className="space-y-4"><p className="text-sm text-[#6d786f]">Paste a recipe link and we’ll fill in the title and ingredients for you.</p><Input autoFocus value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://example.com/favorite-recipe"/><Button className="w-full bg-[#45644e] text-white" disabled={!url.trim()||importing} onClick={importRecipe}>{importing?"Importing recipe…":"Import recipe"}</Button>{importError&&<p className="rounded-xl bg-[#fbe9e2] p-3 text-sm text-[#9a402d]">{importError}</p>}<div className="flex items-center gap-3"><span className="h-px flex-1 bg-[#ddd4c3]"/><span className="text-xs text-[#7b837c]">or</span><span className="h-px flex-1 bg-[#ddd4c3]"/></div><Button variant="outline" className="w-full" onClick={()=>setAddMode("manual")}>Add manually</Button></div>}
+        {addMode==="review"&&<div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">{imageUrl&&<img src={imageUrl} alt="Imported recipe" className="h-40 w-full rounded-2xl object-cover"/>}<div><label className="mb-1 block text-sm font-medium">Title</label><Input value={title} onChange={e=>setTitle(e.target.value)}/></div><div><label className="mb-1 block text-sm font-medium">Ingredients</label><Textarea value={ingredients} onChange={e=>setIngredients(e.target.value)} rows={7}/></div><div><label className="mb-1 block text-sm font-medium">Directions</label><Textarea value={directions} onChange={e=>setDirections(e.target.value)} rows={7}/></div><p className="text-xs text-[#6d786f]">Everything is editable before you save it.</p><Button className="w-full bg-[#45644e] text-white" onClick={saveRecipe}>Save and add to this week</Button><Button variant="ghost" className="w-full" onClick={()=>setAddMode("url")}>Use a different link</Button></div>}
+        {addMode==="manual"&&<div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1"><Input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder="Recipe name"/><Input value={imageUrl} onChange={e=>setImageUrl(e.target.value)} placeholder="Image URL (optional)"/><Textarea value={ingredients} onChange={e=>setIngredients(e.target.value)} placeholder={'One ingredient per line\n2 apples\n1 cup flour'} rows={7}/><Textarea value={directions} onChange={e=>setDirections(e.target.value)} placeholder={'One direction per line\nHeat oven to 375°F\nMix ingredients'} rows={7}/><Button className="w-full bg-[#45644e] text-white" onClick={saveRecipe}>Save and add to this week</Button><Button variant="ghost" className="w-full" onClick={()=>setAddMode("url")}>Back to add from URL</Button></div>}
+      </DialogContent></Dialog>
+    </div></header>
+
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+      {activeRecipe ? <article>
+        <Button variant="ghost" className="mb-5 -ml-2 rounded-lg text-[#315d43] hover:bg-[#e8f0e8]" onClick={()=>setActiveRecipe(null)}><ArrowLeft size={18}/>Back to recipes</Button>
+        <div className="overflow-hidden rounded-[1.75rem] border border-[#dedbd2] bg-white">
+          {activeRecipe.image?<img src={activeRecipe.image} alt={activeRecipe.title} className="h-64 w-full object-cover sm:h-80 lg:h-[28rem]"/>:<div className="grid h-56 place-items-center bg-[#e8f0e8] text-8xl">{activeRecipe.emoji}</div>}
+          <div className="p-6 sm:p-9 lg:p-12">
+            <div className="flex flex-col gap-5 border-b border-[#e8e3da] pb-8 sm:flex-row sm:items-end sm:justify-between">
+              <div><p className="mb-2 text-xs font-bold uppercase tracking-[.2em] text-[#477457]">Family recipe</p><h2 className="max-w-3xl font-serif text-3xl font-bold leading-tight sm:text-5xl">{activeRecipe.title}</h2><p className="mt-3 text-sm text-[#6d786f]">{activeRecipe.sourceUrl?<a href={activeRecipe.sourceUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#45644e] underline decoration-[#45644e]/35 underline-offset-2 hover:decoration-[#45644e]">{activeRecipe.sourceName||"Recipe source"}</a>:(activeRecipe.time==="Imported recipe"?"Family recipe":activeRecipe.time)} · Added by {activeRecipe.author}</p></div>
+              <div className="flex flex-wrap gap-2"><Button onClick={()=>toggle(activeRecipe.id)} variant={selected.includes(activeRecipe.id)?"secondary":"default"} className={`rounded-lg ${selected.includes(activeRecipe.id)?"bg-[#e6efe7] text-[#244832] hover:bg-[#dce8de]":"bg-[#315d43] text-white hover:bg-[#274d37]"}`}>{selected.includes(activeRecipe.id)?<><Check/>Added to this week</>:<><Plus/>Add to this week</>}</Button><Button variant="outline" className="rounded-lg border-[#d7a39a] bg-white text-[#a33f32] hover:bg-[#fbe9e2] hover:text-[#8c3025]" onClick={()=>setRecipeToDelete(activeRecipe)}><Trash2/>Delete</Button></div>
+            </div>
+            <div className="mt-8 flex max-w-md items-center justify-between rounded-2xl bg-[#f2ecdf] p-3"><span className="font-medium">Cooking for</span><div className="flex items-center gap-1"><Button size="icon" variant="ghost" className="size-8 rounded-full" onClick={()=>changeServings(activeRecipe.id,-1)}><Minus size={15}/></Button><strong className="min-w-20 text-center">{servings[activeRecipe.id]||4} people</strong><Button size="icon" variant="ghost" className="size-8 rounded-full" onClick={()=>changeServings(activeRecipe.id,1)}><Plus size={15}/></Button></div></div>
+            <div className="mt-10 grid gap-12 lg:grid-cols-[.8fr_1.2fr] lg:gap-16">
+              <section><h3 className="font-serif text-2xl font-bold">Ingredients</h3><div className="mt-4 divide-y divide-[#e8e0d1]">{(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,index)=>{const item=normalizeIngredient(raw);if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);return <div key={index} className="flex gap-4 py-3"><strong className="w-24 shrink-0 text-[#45644e]">{Math.round(amount*100)/100} {item.unit}</strong><span>{item.name}</span></div>})}</div></section>
+              <section><h3 className="font-serif text-2xl font-bold">Directions</h3>{activeRecipe.directions?.length?<ol className="mt-5 space-y-6">{activeRecipe.directions.map((step,index)=><li key={index} className="flex gap-4"><span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#45644e] font-semibold text-white">{index+1}</span><p className="pt-1 leading-7">{step}</p></li>)}</ol>:<p className="mt-4 rounded-xl bg-[#f2ecdf] p-4 text-sm text-[#6d786f]">Directions weren’t included with this saved recipe. Re-import it from its recipe page to add them.</p>}</section>
+            </div>
+          </div>
+        </div>
+      </article> : <>
+      <section className="mb-8 overflow-hidden rounded-[1.75rem] bg-[#e8f0e8] md:grid md:grid-cols-[1fr_1.05fr]">
+        <div className="flex flex-col justify-center px-6 py-8 sm:px-10 sm:py-10 lg:px-12">
+          <p className="mb-3 text-xs font-bold uppercase tracking-[.2em] text-[#477457]">Cameron Family Table</p>
+          <h2 className="max-w-xl font-serif text-3xl font-medium leading-tight text-[#1f3529] sm:text-4xl lg:text-5xl">Good food, happy family.</h2>
+          <p className="mt-4 max-w-lg text-base leading-7 text-[#5f6e64]">Keep the recipes everyone loves, plan the week together, and bring one tidy list to the store.</p>
+          <div className="mt-6 flex flex-wrap gap-2"><span className="inline-flex items-center gap-2 rounded-lg bg-white/80 px-3 py-2 text-sm font-semibold"><CalendarDays size={16}/>{weekLabel}</span><span className="inline-flex items-center rounded-lg bg-white/80 px-3 py-2 text-sm"><strong className="mr-1">{selected.length}</strong> meals planned</span></div>
+        </div>
+        <img src="/family-taco-night.png" alt="Fresh ingredients prepared for family taco night" className="h-56 w-full object-cover md:h-full md:min-h-[330px]"/>
+      </section>
+
+      <Tabs value={view} onValueChange={setView}>
+        <TabsList className="mb-8 flex h-auto w-full items-center justify-start gap-1 overflow-x-auto rounded-none border-b border-[#dedbd2] bg-transparent p-0 shadow-none">
+          {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative flex-none gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 py-3 text-xs font-semibold text-[#68716a] shadow-none transition hover:bg-transparent hover:text-[#315d43] data-[state=active]:border-[#315d43] data-[state=active]:bg-transparent data-[state=active]:text-[#244832] data-[state=active]:shadow-none sm:px-5 sm:text-sm"><Icon size={18}/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className="rounded-full bg-[#315d43] px-1.5 py-0.5 text-[10px] leading-none text-white sm:px-2 sm:text-xs">{selected.length}</b>}</TabsTrigger>)}
+        </TabsList>
+
+        <TabsContent value="recipes">
+          <div className="mb-5 flex items-end justify-between gap-4"><div><h2 className="font-serif text-2xl font-bold">Family recipes</h2><p className="text-sm text-[#6d786f]">Choose what sounds good for {weekLabel}.</p></div><div className="relative hidden sm:block"><Search className="absolute left-3 top-2.5" size={18}/><Input className="w-64 rounded-lg bg-white pl-10" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search recipes"/></div></div>
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{recipes.filter(r=>r.title.toLowerCase().includes(query.toLowerCase())).map(r=><article key={r.id} onClick={()=>openRecipe(r)} className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-white transition ${selected.includes(r.id)?"border-[#7ea087] shadow-[0_0_0_2px_rgba(65,98,75,.12)]":"border-[#e1ddd3] hover:-translate-y-1 hover:shadow-lg"}`}><div className="absolute right-3 top-3 z-10 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"><DropdownMenu><DropdownMenuTrigger render={<button onClick={event=>event.stopPropagation()} aria-label={`More actions for ${r.title}`} className="grid size-10 place-items-center rounded-lg border border-[#d8d5cd] bg-white/95 text-[#304439] shadow-sm hover:bg-[#f1f4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315d43]/35"/>}><MoreHorizontal size={20}/></DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-44 bg-white"><DropdownMenuItem variant="destructive" onClick={event=>{event.stopPropagation();setRecipeToDelete(r)}}><Trash2/>Delete recipe</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>{r.image?<img src={r.image} alt={r.title} className="h-44 w-full object-cover"/>:<div className="grid h-36 place-items-center bg-[#edf2eb] text-5xl">{r.emoji}</div>}<div className="min-w-0 p-5"><h3 className="truncate font-serif text-xl font-bold" title={r.title}>{r.title}</h3><p className="mt-1 text-sm text-[#6d786f]">{r.sourceUrl?<a href={r.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-[#45644e] underline decoration-[#45644e]/35 underline-offset-2 hover:decoration-[#45644e]" onClick={event=>event.stopPropagation()}>{r.sourceName||"Recipe source"}</a>:(r.time==="Imported recipe"?"Family recipe":r.time)}</p><div className="mt-5 flex items-center justify-between gap-3 border-t border-[#ebe7df] pt-4"><span className="text-xs text-[#788078]">Added by {r.author}</span><Button onClick={event=>{event.stopPropagation();toggle(r.id)}} variant={selected.includes(r.id)?"secondary":"default"} className={`h-9 rounded-lg px-3 text-sm font-semibold ${selected.includes(r.id)?"bg-[#e6efe7] text-[#244832] hover:bg-[#dce8de]":"bg-[#315d43] text-white hover:bg-[#274d37]"}`}>{selected.includes(r.id)?<><Check/>Added</>:<><Plus/>Add to week</>}</Button></div></div></article>)}</div>
+        </TabsContent>
+
+        <TabsContent value="plan"><div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><h2 className="font-serif text-2xl font-bold">This week’s meals</h2><p className="text-sm text-[#6d786f]">{weekLabel} · Set servings separately for every recipe.</p></div><Button onClick={saveWeek} disabled={!selected.length} className="rounded-full bg-[#45644e] text-white"><Archive/>Save this week</Button></div><div className="space-y-3">{recipes.filter(r=>selected.includes(r.id)).map((r,i)=><div key={r.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-4 sm:flex-nowrap sm:gap-4"><div className="grid size-12 shrink-0 place-items-center rounded-xl bg-[#eee5d4] text-2xl">{r.emoji}</div><div className="min-w-0 flex-1"><p className="text-xs uppercase tracking-wide text-[#9a735e]">Meal {i+1}</p><h3 className="truncate font-serif text-lg font-bold">{r.title}</h3></div><div className="order-4 flex w-full items-center justify-between rounded-xl bg-[#f2ecdf] p-2 sm:order-none sm:w-auto sm:justify-start"><span className="ml-1 text-sm font-medium sm:hidden">Cooking for</span><Button size="icon" variant="ghost" className="size-8 rounded-full" onClick={()=>changeServings(r.id,-1)}><Minus size={15}/></Button><strong className="min-w-20 text-center text-sm">{servings[r.id]||4} people</strong><Button size="icon" variant="ghost" className="size-8 rounded-full" onClick={()=>changeServings(r.id,1)}><Plus size={15}/></Button></div><Button size="icon" variant="ghost" onClick={()=>toggle(r.id)} aria-label="Remove meal"><X/></Button></div>)}{selected.length===0&&<div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center"><ChefHat className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Choose recipes to plan this week.</p></div>}</div></TabsContent>
+
+        <TabsContent value="shop"><div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="font-serif text-2xl font-bold">Shopping list</h2><p className="text-sm text-[#6d786f]">{weekLabel} · {grocery.length} items for {selected.length} recipes</p></div><Button variant="outline" className="w-fit rounded-full bg-[#fffdf8]" onClick={()=>setChecked([])}>Clear checks</Button></div><div className="grid min-w-0 gap-4 md:grid-cols-2">{categories.map(cat=><section key={cat} className="min-w-0 rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-4 sm:p-5"><h3 className="mb-3 font-serif text-lg font-bold">{cat}</h3>{grocery.filter(i=>i.category===cat).map(i=>{const key=i.name+i.unit;const done=checked.includes(key);return <label key={key} className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl px-1 py-2.5 sm:px-2 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}><Checkbox className="shrink-0" checked={done} onCheckedChange={()=>setChecked(v=>done?v.filter(x=>x!==key):[...v,key])}/><strong className="w-20 shrink-0 text-left text-sm text-[#45644e]">{Math.round(i.amount*100)/100} {i.unit}</strong><span className="min-w-0 flex-1 break-words">{i.name}</span></label>})}</section>)}{!grocery.length&&<div className="md:col-span-2 rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center"><ShoppingBasket className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Add meals to build your shopping list.</p></div>}</div></TabsContent>
+
+        <TabsContent value="history"><div className="mb-5"><h2 className="font-serif text-2xl font-bold">Meal-week history</h2><p className="text-sm text-[#6d786f]">Saved weekly plans stay here so you can reuse family favorites.</p></div><div className="space-y-4">{history.map(week=><article key={week.id} className="rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-[#9a735e]">Meal plan</p><h3 className="font-serif text-xl font-bold">{week.label}</h3></div><span className="text-xs text-[#778078]">Saved {new Date(week.savedAt).toLocaleDateString()}</span></div><div className="grid gap-2 sm:grid-cols-2">{week.meals.map(meal=><div key={meal.id} className="flex items-center gap-3 rounded-xl bg-[#f3ede1] p-3"><span className="text-2xl">{meal.emoji}</span><div className="min-w-0"><p className="truncate font-medium">{meal.title}</p><p className="text-xs text-[#6d786f]">For {meal.people} people</p></div></div>)}</div></article>)}{!history.length&&<div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center"><HistoryIcon className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">No saved weeks yet.</p><p className="mt-1 text-sm text-[#6d786f]">Open This Week and choose “Save this week.”</p></div>}</div></TabsContent>
+      </Tabs>
+      </>}
+    </div>
+    <AlertDialog open={!!recipeToDelete} onOpenChange={value=>{if(!value)setRecipeToDelete(null)}}><AlertDialogContent className="bg-[#fffdf8]"><AlertDialogHeader><AlertDialogTitle>Delete “{recipeToDelete?.title}”?</AlertDialogTitle><AlertDialogDescription>This removes the recipe from your collection, this week’s plan, and the shopping list. Previously saved week history will remain unchanged.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep recipe</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={()=>recipeToDelete&&deleteRecipe(recipeToDelete.id)}>Delete recipe</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <footer className="mt-8 border-t border-[#ddd4c3] py-6 text-center text-sm text-[#7b837c]">Made for the Cameron family · Saved automatically on this device</footer>
+  </main>;
+}
