@@ -151,6 +151,12 @@ export default function Home() {
     })); return [...items.values()].sort((a,b)=>a.category.localeCompare(b.category));
   },[recipes,selected,servings]);
   const categories=[...new Set(grocery.map(i=>i.category))];
+  const [columnCount,setColumnCount]=useState(3);
+  useEffect(()=>{
+    const update=()=>{const w=typeof window!=="undefined"?window.innerWidth:1200; if(w<640) setColumnCount(1); else if(w<1024) setColumnCount(2); else setColumnCount(3);};
+    update(); window.addEventListener('resize', update); return ()=>window.removeEventListener('resize', update);
+  },[]);
+  const categoryColumns = useMemo(()=>{ const cols = Array.from({length: Math.max(1, columnCount)}, ()=>[] as string[]); categories.forEach((c,i)=>cols[i%cols.length].push(c)); return cols; },[categories,columnCount]);
 
   const toggle=(id:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();const adding=!plan.selected.includes(id);return{...all,[activeWeekKey]:{...plan,selected:adding?[...plan.selected,id]:plan.selected.filter(recipeId=>recipeId!==id),servings:{...plan.servings,[id]:plan.servings[id]||4},checked:adding&&plan.selected.length===0?[]:plan.checked}}});
   const changeServings=(id:string,delta:number)=>setServings(v=>({...v,[id]:Math.max(1,(v[id]||4)+delta)}));
@@ -215,7 +221,40 @@ export default function Home() {
 
         <TabsContent value="plan"><div className="space-y-3">{recipes.filter(r=>selected.includes(r.id)).map((r,i)=><div key={r.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-4 sm:flex-nowrap sm:gap-4">{r.image?<img src={r.image} alt="" className="size-14 shrink-0 rounded-xl object-cover sm:size-16"/>:<div className="grid size-14 shrink-0 place-items-center rounded-xl bg-[#eee5d4] text-2xl sm:size-16">{r.emoji}</div>}<div className="min-w-0 flex-1"><Input aria-label={`Day for ${r.title}`} value={days[r.id]||""} onChange={event=>setDay(r.id,event.target.value)} placeholder={`Meal ${i+1}`} className="h-6 w-28 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-xs font-semibold uppercase tracking-wide text-[#9a735e] shadow-none placeholder:text-[#9a9f9b] hover:border-[#ddd4c3] focus-visible:border-[#9a735e] focus-visible:ring-0"/><h3 className="truncate font-serif text-lg font-bold">{r.title}</h3></div><Input aria-label={`Chef cooking ${r.title}`} value={chefs[r.id]||""} onChange={event=>setChef(r.id,event.target.value)} placeholder="Chef cooking" className="order-3 h-9 w-full rounded-lg border-transparent bg-transparent px-2 text-sm shadow-none transition placeholder:text-[#9a9f9b] hover:bg-[#f6f2ea] focus-visible:border-[#c9d6cb] focus-visible:bg-white sm:order-none sm:w-36"/><div className="order-4 flex w-full items-center justify-between rounded-xl bg-[#f2ecdf] p-2 sm:order-none sm:w-auto sm:justify-start"><span className="ml-1 text-sm font-medium sm:hidden">Cooking for</span><Button size="icon" variant="ghost" className="size-8 rounded-full" onClick={()=>changeServings(r.id,-1)}><Minus size={15}/></Button><strong className="min-w-20 text-center text-sm">{servings[r.id]||4} people</strong><Button size="icon" variant="ghost" className="size-8 rounded-full" onClick={()=>changeServings(r.id,1)}><Plus size={15}/></Button></div><Button size="icon" variant="ghost" onClick={()=>toggle(r.id)} aria-label="Remove meal"><X/></Button></div>)}{selected.length===0&&<div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center"><ChefHat className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div></TabsContent>
 
-        <TabsContent value="shop">{grocery.length?<div className="min-w-0" style={{columnWidth:"22rem", columnGap:"1rem", columnFill:"auto", WebkitColumnFill:"auto"}}>{categories.map(cat=>{const items=grocery.filter(i=>i.category===cat);return <section key={cat} style={{verticalAlign:'top'}} className="min-w-0 inline-block align-top w-full break-inside-avoid mb-4 overflow-hidden rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] shadow-[0_2px_10px_rgba(45,61,50,.04)]"><div className="flex items-center justify-between border-b border-[#ebe6dc] bg-[#f6f1e7] px-4 py-3"><h3 className="font-serif text-lg font-bold">{cat}</h3><div className="flex items-center gap-2"><button onClick={(e)=>{e.stopPropagation();setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))}} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} className="rounded-md border border-transparent bg-white/0 px-2 py-1 text-sm text-[#45644e] hover:bg-white/80">{collapsed[cat]?"Expand":"Collapse"}</button><span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-[#6d786f]">{items.length}</span></div></div><div id={`cat-${cat}`} className={collapsed[cat]?"hidden p-2":"p-2"}>{items.map(i=>{const key=i.name+i.unit;const done=checked.includes(key);return <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-2 rounded-xl px-2 py-2.5 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}><Checkbox className="mt-0.5 shrink-0" checked={done} onCheckedChange={()=>setChecked(v=>done?v.filter(x=>x!==key):[...v,key])}/><strong className="shrink-0 whitespace-nowrap text-sm leading-5 text-[#45644e]">{Math.round(i.amount*100)/100} {i.unit}</strong><span className="min-w-0 flex-1 break-words leading-5">{i.name}</span></label>})}</div></section>})}</div>:<div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center"><ShoppingBasket className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Add meals to build your shopping list.</p></div>}</TabsContent>
+        <TabsContent value="shop">{grocery.length?
+            <div className="min-w-0">
+              {/* Balanced columns implemented in JS to ensure top-aligned cards */}
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-4">
+                {categoryColumns.map((col,ci)=> (
+                  <div key={ci} className="flex-1 flex flex-col gap-4">
+                    {col.map(cat=>{
+                      const items = grocery.filter(i=>i.category===cat);
+                      return (
+                        <section key={cat} className="min-w-0 w-full overflow-hidden rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] shadow-[0_2px_10px_rgba(45,61,50,.04)]">
+                          <div className="flex items-center justify-between border-b border-[#ebe6dc] bg-[#f6f1e7] px-4 py-3">
+                            <h3 className="font-serif text-lg font-bold">{cat}</h3>
+                            <div className="flex items-center gap-2">
+                              <button onClick={(e)=>{e.stopPropagation();setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))}} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} className="rounded-md border border-transparent bg-white/0 px-2 py-1 text-sm text-[#45644e] hover:bg-white/80">{collapsed[cat]?"Expand":"Collapse"}</button>
+                              <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-[#6d786f]">{items.length}</span>
+                            </div>
+                          </div>
+                          <div id={`cat-${cat}`} className={collapsed[cat]?"hidden p-2":"p-2"}>
+                            {items.map(i=>{const key=i.name+i.unit;const done=checked.includes(key);return (
+                              <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-2 rounded-xl px-2 py-2.5 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
+                                <Checkbox className="mt-0.5 shrink-0" checked={done} onCheckedChange={()=>setChecked(v=>done?v.filter(x=>x!==key):[...v,key])}/>
+                                <strong className="shrink-0 whitespace-nowrap text-sm leading-5 text-[#45644e]">{Math.round(i.amount*100)/100} {i.unit}</strong>
+                                <span className="min-w-0 flex-1 break-words leading-5">{i.name}</span>
+                              </label>
+                            )})}
+                          </div>
+                        </section>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div> : <div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center"><ShoppingBasket className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Add meals to build your shopping list.</p></div>}
+          </TabsContent>
 
         <TabsContent value="history"><div className="mb-5"><h2 className="font-serif text-2xl font-bold">Meal-week history</h2><p className="text-sm text-[#6d786f]">Completed weekly plans stay here so you can revisit family favorites.</p></div><div className="space-y-4">{history.map(week=><article key={week.id} className="rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-[#9a735e]">Meal plan</p><h3 className="font-serif text-xl font-bold">{week.label}</h3></div><span className="text-xs text-[#778078]">Saved {new Date(week.savedAt).toLocaleDateString()}</span></div><div className="grid gap-2 sm:grid-cols-2">{week.meals.map(meal=><div key={meal.id} className="flex items-center gap-3 rounded-xl bg-[#f3ede1] p-3"><span className="text-2xl">{meal.emoji}</span><div className="min-w-0"><p className="truncate font-medium">{meal.title}</p><p className="text-xs text-[#6d786f]">{meal.day?`${meal.day} · `:""}For {meal.people} people{meal.chef?` · Chef ${meal.chef}`:""}</p></div></div>)}</div></article>)}{!history.length&&<div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center"><HistoryIcon className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">No completed weeks yet.</p><p className="mt-1 text-sm text-[#6d786f]">A week will appear here automatically after it ends.</p></div>}</div></TabsContent>
       </Tabs>
