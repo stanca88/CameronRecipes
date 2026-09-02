@@ -9,9 +9,8 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pages: write
-      id-token: write
 
     steps:
       - name: Checkout
@@ -28,11 +27,13 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./out
-
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v3
+        run: |
+          cd out
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git init
+          git add -A
+          git commit -m "Deploy to GitHub Pages"
+          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:gh-pages
+
