@@ -1,0 +1,2 @@
+:HL["/CameronRecipes/_next/static/chunks/15uex23vmb6ui.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"pVdMJZLYRNJPcN5sgK1-d"}
