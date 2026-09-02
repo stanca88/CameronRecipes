@@ -60,16 +60,29 @@ export async function POST(request: Request) {
     });
     if (!response.ok) throw new Error("That recipe page could not be opened.");
     const html = await response.text();
+    if (!html.trim().startsWith("<")) {
+      return Response.json({error:"That page didn't return normal HTML. Try a different recipe link or add it manually."},{status:422});
+    }
     const blocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
     let recipe: JsonLd | undefined;
+    let sawLdJson = false;
     for (const block of blocks) {
+      sawLdJson = true;
       try {
         const parsed = JSON.parse(decode(block[1].trim()));
         recipe = allObjects(parsed).find(isRecipe);
         if (recipe) break;
-      } catch { /* Some pages contain unrelated malformed JSON-LD. */ }
+      } catch {
+        continue;
+      }
     }
-    if (!recipe) return Response.json({error:"We couldn't find structured recipe details on that page. You can still use Add manually."},{status:422});
+    if (!recipe) {
+      return Response.json({
+        error: sawLdJson
+          ? "We found recipe metadata, but couldn't read it. Try a different recipe link or add it manually."
+          : "We couldn't find structured recipe details on that page. You can still use Add manually.",
+      }, {status:422});
+    }
     const title = typeof recipe.name === "string" ? decode(recipe.name).trim() : "";
     const ingredients = Array.isArray(recipe.recipeIngredient)
       ? recipe.recipeIngredient.filter((item): item is string => typeof item === "string").map(item=>decode(item).trim())
