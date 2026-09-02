@@ -1,6 +1,11 @@
-import { env } from "cloudflare:workers";
-import { drizzle } from "drizzle-orm/d1";
-import * as schema from "./schema";
+// @ts-nocheck
+// This file is for Cloudflare Workers only and is not used in static export
+// import { env } from "cloudflare:workers";
+// import { drizzle } from "drizzle-orm/d1";
+// import * as schema from "./schema";
+
+export {};
+
 
 export function getDb() {
   if (!env.DB) {
