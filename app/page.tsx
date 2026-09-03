@@ -118,11 +118,12 @@ export default function Home() {
   const unsubscribeRef=useRef<(() => void)|null>(null);
   const activeWeekKey=weekKey(weekOffset);
   const activePlan=plans[activeWeekKey]||{selected:[],servings:{},checked:[],chefs:{},days:{}};
-  const selected=activePlan.selected;
-  const servings=activePlan.servings;
-  const checked=activePlan.checked;
-  const chefs=activePlan.chefs||{};
-  const days=activePlan.days||{};
+  const visibleRecipeIds=new Set(recipes.map(recipe=>recipe.id));
+  const selected=(activePlan.selected||[]).filter(id=>visibleRecipeIds.has(id));
+  const servings=Object.fromEntries(Object.entries(activePlan.servings||{}).filter(([id])=>visibleRecipeIds.has(id)));
+  const checked=(activePlan.checked||[]).filter(id=>visibleRecipeIds.has(id));
+  const chefs=Object.fromEntries(Object.entries(activePlan.chefs||{}).filter(([id])=>visibleRecipeIds.has(id)));
+  const days=Object.fromEntries(Object.entries(activePlan.days||{}).filter(([id])=>visibleRecipeIds.has(id)));
   const emptyPlan=():WeeklyPlan=>({selected:[],servings:{},checked:[],chefs:{},days:{}});
   const setSelected=(update:(current:string[])=>string[])=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,selected:update(plan.selected)}}});
   const setServings=(update:(current:Record<string,number>)=>Record<string,number>)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,servings:update(plan.servings)}}});
