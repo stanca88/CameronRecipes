@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, History as HistoryIcon, Minus, MoreHorizontal, Plus, Search, ShoppingBasket, Trash2, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { subscribeToShoppingList, saveShoppingList, toggleShoppingItem } from "@/app/lib/realtime";
 
 type Ingredient = { name: string; amount: number; unit: string; category: string };
 type Recipe = { id: string; title: string; emoji: string; time: string; serves: number; author: string; ingredients: Ingredient[]; image?: string; directions?: string[]; sourceUrl?: string; sourceName?: string };
 type WeeklyPlan = { selected: string[]; servings: Record<string,number>; checked: string[]; chefs: Record<string,string>; days: Record<string,string> };
 type SavedWeek = { id: string; label: string; savedAt: string; meals: { id: string; title: string; emoji: string; people: number; chef?: string; day?: string }[] };
+type ShoppingItem = { id: string; ingredient_key: string; ingredient_name: string; ingredient_amount: number; ingredient_unit: string; ingredient_category: string; checked: boolean };
 
 const starterRecipes: Recipe[] = [
   {id:"roasted-veg-bowl",title:"Roasted Vegetable Grain Bowl",emoji:"🥗",time:"35 min",serves:4,author:"Maria",image:"/veg-bowl.jpg",ingredients:[
@@ -111,6 +113,8 @@ export default function Home() {
   const [collapsed,setCollapsed]=useState<Record<string,boolean>>({});
   const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("recipes");
+  const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
+  const unsubscribeRef=useRef<(() => void)|null>(null);
   const activeWeekKey=weekKey(weekOffset);
   const activePlan=plans[activeWeekKey]||{selected:[],servings:{},checked:[],chefs:{},days:{}};
   const selected=activePlan.selected;
@@ -152,6 +156,22 @@ export default function Home() {
     })); return [...items.values()].sort((a,b)=>a.category.localeCompare(b.category));
   },[recipes,selected,servings]);
   const categories=[...new Set(grocery.map(i=>i.category))];
+  const syncedChecked=useMemo(()=>{const localSet=new Set(checked);const syncedKeys=new Set(shoppingItems.filter(s=>s.checked).map(s=>s.ingredient_key));return Array.from(new Set([...localSet,...syncedKeys]));},[checked,shoppingItems]);
+  useEffect(()=>{
+    if(!loaded||grocery.length===0)return;
+    (async()=>{
+      try{
+        const items=grocery.map(g=>({ingredient_key:`${g.name.toLowerCase()}|${g.unit.toLowerCase()}|${g.category}`,ingredient_name:g.name,ingredient_amount:g.amount,ingredient_unit:g.unit,ingredient_category:g.category}));
+        await saveShoppingList(activeWeekKey,items);
+      }catch(e){console.error("Failed to save shopping list:",e)}
+    })();
+  },[grocery,activeWeekKey,loaded]);
+  useEffect(()=>{
+    if(!loaded)return;
+    if(unsubscribeRef.current)unsubscribeRef.current();
+    unsubscribeRef.current=subscribeToShoppingList(activeWeekKey,(items:ShoppingItem[])=>setShoppingItems(items));
+    return()=>{if(unsubscribeRef.current)unsubscribeRef.current()};
+  },[activeWeekKey,loaded]);
   const [columnCount,setColumnCount]=useState(3);
   useEffect(()=>{
     const update=()=>{const w=typeof window!=="undefined"?window.innerWidth:1200; if(w<640) setColumnCount(1); else if(w<1024) setColumnCount(2); else setColumnCount(3);};
@@ -167,6 +187,7 @@ export default function Home() {
   const saveRecipe=async()=>{if(!title.trim())return;const id=crypto.randomUUID();const newRecipe={id,title:title.trim(),emoji:"🍽️",time:"Family recipe",serves:4,author:"Family",ingredients:parsedIngredients(),directions:directions.split("\n").filter(Boolean).map(x=>x.trim()),image:imageUrl||undefined,sourceUrl:url||undefined,sourceName:sourceName||undefined};setRecipes(v=>[newRecipe,...v]);setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,selected:[...plan.selected,id],servings:{...plan.servings,[id]:4},checked:plan.selected.length===0?[]:plan.checked}}});resetAdd();setOpen(false);setView("plan");try{await fetch("/api/recipes",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id,title:newRecipe.title,emoji:newRecipe.emoji,time:newRecipe.time,serves:newRecipe.serves,author:newRecipe.author,ingredients:newRecipe.ingredients,directions:newRecipe.directions,image:newRecipe.image,source_url:newRecipe.sourceUrl,source_name:newRecipe.sourceName})})}catch(error){console.error("Failed to save recipe to database:",error)}};
   const importRecipe=async()=>{if(!url.trim())return;setImporting(true);setImportError("");try{const response=await fetch("/api/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({url})});const data=await response.json();if(!response.ok)throw new Error(data.error||"We couldn't import that recipe.");setTitle(data.title||"");setIngredients((data.ingredients||[]).join("\n"));setDirections((data.directions||[]).join("\n"));setImageUrl(data.image||"");setSourceName(data.sourceName||"");setAddMode("review")}catch(error){setImportError(error instanceof Error?error.message:"We couldn't import that recipe.")}finally{setImporting(false)}};
   const deleteRecipe=(id:string)=>{setRecipes(v=>v.filter(recipe=>recipe.id!==id));setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>{const nextServings={...plan.servings};const nextChefs={...(plan.chefs||{})};const nextDays={...(plan.days||{})};delete nextServings[id];delete nextChefs[id];delete nextDays[id];return[key,{...plan,selected:plan.selected.filter(recipeId=>recipeId!==id),servings:nextServings,chefs:nextChefs,days:nextDays}]})));setActiveRecipe(null);try{fetch(`/api/recipes/${id}`,{method:"DELETE"})}catch(error){console.error("Failed to delete recipe from database:",error)}};
+  const toggleShoppingItemSync=async(itemKey:string,shouldCheck:boolean)=>{setChecked(v=>shouldCheck?[...v,itemKey]:v.filter(x=>x!==itemKey));const shoppingItem=shoppingItems.find(si=>si.ingredient_key===itemKey);if(shoppingItem){try{await toggleShoppingItem(shoppingItem.id,!shoppingItem.checked)}catch(error){console.error("Failed to sync shopping item:",error)}}};
 
   const nav=[{value:"recipes",label:"Recipes",icon:BookOpen},{value:"plan",label:"Plan",icon:ChefHat},{value:"shop",label:"Shop",icon:ShoppingBasket}];
 
@@ -240,9 +261,9 @@ export default function Home() {
                             </div>
                           </div>
                           <div id={`cat-${cat}`} className={collapsed[cat]?"hidden p-2":"p-2"}>
-                            {items.map(i=>{const key=i.name+i.unit;const done=checked.includes(key);return (
+                            {items.map(i=>{const key=i.name+i.unit;const done=syncedChecked.includes(key);return (
                               <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-2 rounded-xl px-2 py-2.5 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
-                                <Checkbox className="mt-0.5 shrink-0" checked={done} onCheckedChange={()=>setChecked(v=>done?v.filter(x=>x!==key):[...v,key])}/>
+                                <Checkbox className="mt-0.5 shrink-0" checked={done} onCheckedChange={()=>toggleShoppingItemSync(key,!done)}/>
                                 <strong className="shrink-0 whitespace-nowrap text-sm leading-5 text-[#45644e]">{Math.round(i.amount*100)/100} {i.unit}</strong>
                                 <span className="min-w-0 flex-1 break-words leading-5">{i.name}</span>
                               </label>
