@@ -237,7 +237,7 @@ export default function Home() {
       </header>
 
       <Tabs value={view} onValueChange={setView}>
-        <div className="mb-8 flex w-full items-end gap-1 overflow-x-auto border-b border-[#dedbd2]">
+        <div className="mb-8 flex w-full items-end gap-1 border-b border-[#dedbd2]">
           <TabsList className="flex h-auto shrink-0 items-center justify-start gap-1 rounded-none bg-transparent p-0 shadow-none">
             {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative flex-none gap-2 rounded-none border-0 border-b-2 border-transparent bg-transparent px-2.5 py-3 text-xs font-semibold text-[#68716a] shadow-none transition hover:bg-transparent hover:text-[#315d43] data-[state=active]:border-[#315d43] data-[state=active]:bg-transparent data-[state=active]:text-[#244832] data-[state=active]:shadow-none sm:px-5 sm:text-sm"><Icon size={18}/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className="rounded-full bg-[#315d43] px-1.5 py-0.5 text-[10px] leading-none text-white sm:px-2 sm:text-xs">{selected.length}</b>}</TabsTrigger>)}
           </TabsList>
