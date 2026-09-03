@@ -113,6 +113,7 @@ export default function Home() {
   const [collapsed,setCollapsed]=useState<Record<string,boolean>>({});
   const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("recipes");
+  const [syncing,setSyncing]=useState(false);
   const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
   const unsubscribeRef=useRef<(() => void)|null>(null);
   const activeWeekKey=weekKey(weekOffset);
@@ -132,6 +133,7 @@ export default function Home() {
 
   useEffect(()=>{try{const params=new URLSearchParams(window.location.search);if(params.get("resetLocal")==="1"){localStorage.removeItem("cameron-family-table");params.delete("resetLocal");const newUrl=window.location.pathname+(params.toString()?"?"+params.toString():"");window.history.replaceState({},"",newUrl);}const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}}finally{setLoaded(true);loadSharedRecipes()}},[]);
   const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return;const {recipes:shared}=await response.json();if(Array.isArray(shared)&&shared.length>0){const normalized=shared.map((r:any)=>({...r,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>typeof i==="string"?parseIngredientLine(i):i):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string=>typeof d==="string"):[]}));setRecipes(normalized)}else{setRecipes(starterRecipes)}}catch(e){console.error("Failed to load shared recipes:",e);setRecipes(starterRecipes)}};
+  const syncNow=async()=>{setSyncing(true);try{await loadSharedRecipes()}finally{setSyncing(false)}};
   useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
   useEffect(()=>{
     if(!loaded)return;
@@ -172,6 +174,7 @@ export default function Home() {
     unsubscribeRef.current=subscribeToShoppingList(activeWeekKey,(items:ShoppingItem[])=>setShoppingItems(items));
     return()=>{if(unsubscribeRef.current)unsubscribeRef.current()};
   },[activeWeekKey,loaded]);
+  useEffect(()=>{if(loaded)syncNow()},[loaded]);
   const [columnCount,setColumnCount]=useState(3);
   useEffect(()=>{
     const update=()=>{const w=typeof window!=="undefined"?window.innerWidth:1200; if(w<640) setColumnCount(1); else if(w<1024) setColumnCount(2); else setColumnCount(3);};
@@ -219,7 +222,12 @@ export default function Home() {
       <header className="relative mb-8 min-h-[300px] overflow-hidden rounded-[1.75rem] sm:min-h-[350px]">
         <img src="/family-taco-night.png?v=2" alt="Fresh ingredients prepared for family taco night" className="absolute inset-0 h-full w-full object-cover object-center"/>
         <div className="absolute inset-0 bg-gradient-to-r from-[#172c20]/20 via-[#172c20]/12 to-[#172c20]/6" aria-hidden="true"/>
-        <Button onClick={()=>setOpen(true)} aria-label="Add a recipe" className="absolute right-4 top-4 z-10 h-10 rounded-lg bg-white px-4 text-sm font-semibold text-[#244832] shadow-none hover:bg-[#f4f7f3] sm:right-6 sm:top-6"><Plus size={18}/>Add recipe</Button>
+        <div className="absolute right-4 top-4 z-10 flex gap-2 sm:right-6 sm:top-6">
+          <Button onClick={syncNow} disabled={syncing} aria-label="Sync recipes now" className="h-10 rounded-lg border border-[#d8ddd5] bg-white px-4 text-sm font-semibold text-[#244832] shadow-none hover:bg-[#f4f7f3]">
+            {syncing ? "Syncing…" : "Sync now"}
+          </Button>
+          <Button onClick={()=>setOpen(true)} aria-label="Add a recipe" className="h-10 rounded-lg bg-white px-4 text-sm font-semibold text-[#244832] shadow-none hover:bg-[#f4f7f3]"><Plus size={18}/>Add recipe</Button>
+        </div>
         <div className="relative flex min-h-[300px] max-w-2xl flex-col justify-center px-5 py-7 text-white sm:min-h-[350px] sm:px-10 lg:px-12"><div className="w-fit max-w-full rounded-2xl bg-[#13271d]/75 py-5 pl-5 pr-10 shadow-sm backdrop-blur-sm sm:py-7 sm:pl-7 sm:pr-12">
           <p className="mb-3 text-xs font-bold uppercase tracking-[.2em] text-[#d5e7d8]">Cameron Family Table</p>
           <h2 className="whitespace-nowrap font-serif text-2xl font-medium leading-tight sm:text-4xl lg:text-5xl">Good food, happy family.</h2>
