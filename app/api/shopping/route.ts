@@ -1,7 +1,9 @@
-import { supabase } from "@/app/lib/supabase";
+import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function GET(request: Request) {
   try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const url = new URL(request.url);
     const weekKey = url.searchParams.get("week_key");
     
@@ -26,6 +28,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const { week_key, items } = await request.json();
     
     if (!week_key || !Array.isArray(items)) {

@@ -1,5 +1,3 @@
-import { supabase } from "./supabase";
-
 // Polling-based sync (real-time subscriptions can be added later)
 export function subscribeToShoppingList(
   weekKey: string,

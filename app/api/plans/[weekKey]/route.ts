@@ -1,10 +1,12 @@
-import { supabase } from "@/app/lib/supabase";
+import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function GET(
   _request: Request,
   context: { params: Promise<{ weekKey: string }> }
 ) {
   try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const { weekKey } = await context.params;
     const { data, error } = await supabase
       .from("weekly_plans")
@@ -25,6 +27,8 @@ export async function PUT(
   context: { params: Promise<{ weekKey: string }> }
 ) {
   try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const { weekKey } = await context.params;
     const { selected_recipes, servings, chefs, days } = await request.json();
     

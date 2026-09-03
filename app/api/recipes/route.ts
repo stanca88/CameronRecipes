@@ -1,7 +1,9 @@
-import { supabase } from "@/app/lib/supabase";
+import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function GET() {
   try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const { data, error } = await supabase
       .from("recipes")
       .select("*")
@@ -17,6 +19,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const recipe = await request.json();
     const { data, error } = await supabase
       .from("recipes")

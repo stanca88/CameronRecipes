@@ -1,10 +1,12 @@
-import { supabase } from "@/app/lib/supabase";
+import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const { id } = await context.params;
     const { checked } = await request.json();
 

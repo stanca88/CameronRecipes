@@ -1,10 +1,12 @@
-import { supabase } from "@/app/lib/supabase";
+import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const { id } = await context.params;
     const recipe = await request.json();
     const { data, error } = await supabase
@@ -27,6 +29,8 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const { id } = await context.params;
     const { error } = await supabase
       .from("recipes")
