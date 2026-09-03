@@ -93,7 +93,7 @@ function parseIngredientLine(line:string):Ingredient {
 }
 
 export default function Home() {
-  const [recipes,setRecipes]=useState(starterRecipes);
+  const [recipes,setRecipes]=useState<Recipe[]>([]);
   const [weekOffset,setWeekOffset]=useState<0|1>(0);
   const [plans,setPlans]=useState<Record<string,WeeklyPlan>>({[weekKey(0)]:{selected:["roasted-veg-bowl","lemon-herb-chicken"],servings:{"roasted-veg-bowl":4,"lemon-herb-chicken":4},checked:[],chefs:{},days:{}}});
   const [history,setHistory]=useState<SavedWeek[]>([]);
@@ -132,7 +132,7 @@ export default function Home() {
   const weekLabel=weekRange(weekOffset);
 
   useEffect(()=>{try{const params=new URLSearchParams(window.location.search);if(params.get("resetLocal")==="1"){localStorage.removeItem("cameron-family-table");params.delete("resetLocal");const newUrl=window.location.pathname+(params.toString()?"?"+params.toString():"");window.history.replaceState({},"",newUrl);}const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}}finally{setLoaded(true);loadSharedRecipes()}},[]);
-  const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)&&shared.length>0){const normalized=shared.map((r:any)=>({...r,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>typeof i==="string"?parseIngredientLine(i):i):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string=>typeof d==="string"):[]}));setRecipes(normalized);return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
+  const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)){const normalized=shared.map((r:any)=>({...r,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>typeof i==="string"?parseIngredientLine(i):i):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string=>typeof d==="string"):[]}));setRecipes(normalized);return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
   const syncNow=async()=>{setSyncing(true);try{const hasShared=await loadSharedRecipes();if(hasShared){const response=await fetch(`/api/shopping?week_key=${encodeURIComponent(activeWeekKey)}`);if(response.ok){const {items}=await response.json();if(Array.isArray(items))setShoppingItems(items)}}}finally{setSyncing(false)}};
   useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
   useEffect(()=>{
