@@ -1,6 +1,20 @@
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M22 19.2727C22 20.779 20.779 22 19.2727 22H14.7273C13.221 22 12 20.779 12 19.2727V12H19.2727C20.779 12 22 13.221 22 14.7273V19.2727Z" fill="#68C4FF"/>
-<path d="M20 2C21.1046 2 22 2.89543 22 4V7C22 8.10457 21.1046 9 20 9H17C15.8954 9 15 8.10457 15 7V4C15 2.89543 15.8954 2 17 2H20Z" fill="#0C79D8"/>
-<path d="M7 15C8.10457 15 9 15.8954 9 17V20C9 21.1046 8.10457 22 7 22H4C2.89543 22 2 21.1046 2 20V17C2 15.8954 2.89543 15 4 15H7Z" fill="#0C79D8"/>
-<path d="M12 12H4.72727C3.22104 12 2 10.779 2 9.27273V4.72727C2 3.22104 3.22104 2 4.72727 2H9.27273C10.779 2 12 3.22104 12 4.72727V12Z" fill="#2E9EFF"/>
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="bg" x1="16" y1="12" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#45644E"/>
+    <stop offset="1" stop-color="#2C4736"/>
+  </linearGradient>
+  <linearGradient id="plate" x1="32" y1="44" x2="96" y2="92" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#FFFDF8"/>
+    <stop offset="1" stop-color="#F0E7D7"/>
+  </linearGradient>
+</defs>
+<rect x="6" y="6" width="116" height="116" rx="28" fill="url(#bg)"/>
+<circle cx="64" cy="68" r="30" fill="url(#plate)"/>
+<circle cx="64" cy="68" r="18" fill="#DFAE5C"/>
+<path d="M52 64c0-6.627 5.373-12 12-12s12 5.373 12 12-5.373 12-12 12-12-5.373-12-12Z" fill="#F4C983"/>
+<path d="M53 51c4.5-7 17.5-7 22 0" stroke="#FFF7E8" stroke-width="5" stroke-linecap="round"/>
+<path d="M38 96c6-10 15-15 26-15s20 5 26 15" stroke="#F7E7C6" stroke-width="7" stroke-linecap="round"/>
+<path d="M45 38c4-7 9-10 14-10" stroke="#E5F0E6" stroke-width="6" stroke-linecap="round"/>
+<path d="M83 38c4-7 9-10 14-10" stroke="#E5F0E6" stroke-width="6" stroke-linecap="round"/>
 </svg>
