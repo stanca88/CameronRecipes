@@ -98,6 +98,7 @@ export default function Home() {
   const [plans,setPlans]=useState<Record<string,WeeklyPlan>>({[weekKey(0)]:{selected:["roasted-veg-bowl","lemon-herb-chicken"],servings:{"roasted-veg-bowl":4,"lemon-herb-chicken":4},checked:[],chefs:{},days:{}}});
   const [history,setHistory]=useState<SavedWeek[]>([]);
   const [query,setQuery]=useState("");
+  const [searchOpen,setSearchOpen]=useState(false);
   const [open,setOpen]=useState(false);
   const [title,setTitle]=useState("");
   const [url,setUrl]=useState("");
@@ -118,6 +119,7 @@ export default function Home() {
   const [collapsed,setCollapsed]=useState<Record<string,boolean>>({});
   const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("recipes");
+  useEffect(()=>{if(view!=="recipes"){setSearchOpen(false);setQuery("")}},[view]);
   const [syncing,setSyncing]=useState(false);
   const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
   const unsubscribeRef=useRef<(() => void)|null>(null);
@@ -247,15 +249,26 @@ export default function Home() {
 
       <Tabs value={view} onValueChange={setView}>
         <div className="mb-4 flex items-center gap-2 rounded-2xl border border-[#dedbd2] bg-white p-1.5 sm:mb-0 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:p-0">
-          <TabsList className="grid flex-1 grid-cols-3 gap-1 rounded-xl bg-transparent p-0 shadow-none sm:flex sm:h-auto sm:flex-none sm:items-center sm:justify-start sm:rounded-none">
+          <TabsList className="grid h-auto flex-1 grid-cols-3 gap-1 rounded-xl bg-transparent p-0 shadow-none sm:flex sm:flex-none sm:items-center sm:justify-start sm:rounded-none">
             {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg border-0 bg-transparent px-2 py-2 text-xs font-semibold text-[#68716a] shadow-none transition hover:bg-[#f2f5f1] hover:text-[#315d43] data-[state=active]:bg-[#e8f0e8] data-[state=active]:text-[#244832] data-[state=active]:shadow-none sm:min-h-11 sm:flex-none sm:flex-row sm:gap-2 sm:rounded-none sm:border-b-2 sm:border-transparent sm:bg-transparent sm:px-5 sm:py-3 sm:text-sm sm:data-[state=active]:border-[#315d43] sm:data-[state=active]:bg-transparent"><Icon size={20} className="shrink-0"/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className="rounded-full bg-[#315d43] px-1.5 py-0.5 text-[10px] leading-none text-white sm:px-2 sm:text-xs">{selected.length}</b>}</TabsTrigger>)}
           </TabsList>
           <DropdownMenu><DropdownMenuTrigger aria-label="More navigation" className={`grid size-11 shrink-0 place-items-center rounded-lg bg-transparent text-[#68716a] transition hover:bg-[#f2f5f1] hover:text-[#315d43] sm:h-11 sm:w-11 sm:rounded-none sm:border-b-2 ${view==="history"?"bg-[#e8f0e8] text-[#244832] sm:border-[#315d43]":"sm:border-transparent"}`}><MoreHorizontal size={22}/></DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-40 bg-white"><DropdownMenuItem onClick={()=>setView("history")}><HistoryIcon/>History</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
         </div>
 
-        {view!=="history"&&<div className="mb-6 flex flex-col gap-3 border-b border-[#dedbd2] pb-4 pt-4 sm:flex-row sm:items-center sm:justify-between sm:pt-3">
-          <div className="flex flex-wrap items-center gap-2"><Select value={String(weekOffset)} onValueChange={value=>setWeekOffset(Number(value) as 0|1)}><SelectTrigger aria-label="Choose planning week" className="h-11 rounded-lg border-[#d9d5cc] bg-white px-3 text-sm font-semibold text-[#244832] shadow-none sm:h-9"><CalendarDays size={16}/><SelectValue>{weekLabel}</SelectValue></SelectTrigger><SelectContent className="bg-white"><SelectItem value="0">This week · {weekRange(0)}</SelectItem><SelectItem value="1">Next week · {weekRange(1)}</SelectItem></SelectContent></Select><span className="inline-flex items-center rounded-lg bg-[#f2ecdf] px-3 py-2 text-sm text-[#45644e]"><strong className="mr-1">{selected.length}</strong> meals planned</span></div>
-          {view==="recipes"&&<div className="relative shrink-0 sm:w-56"><Search className="absolute left-3 top-2.5 text-[#526158]" size={17}/><Input className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 shadow-none sm:h-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search recipes"/></div>}
+        {view!=="history"&&<div className="mb-6 flex items-center gap-2 border-b border-[#dedbd2] pb-4 pt-4 sm:justify-between sm:pt-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+            <Select value={String(weekOffset)} onValueChange={value=>setWeekOffset(Number(value) as 0|1)}><SelectTrigger aria-label="Choose planning week" className="h-11 min-w-0 shrink rounded-lg border-[#d9d5cc] bg-white px-3 text-sm font-semibold text-[#244832] shadow-none sm:h-9"><CalendarDays size={16} className="shrink-0"/><SelectValue className="truncate">{weekLabel}</SelectValue></SelectTrigger><SelectContent className="bg-white"><SelectItem value="0">This week · {weekRange(0)}</SelectItem><SelectItem value="1">Next week · {weekRange(1)}</SelectItem></SelectContent></Select>
+            <span className="hidden shrink-0 items-center rounded-lg bg-[#f2ecdf] px-3 py-2 text-sm text-[#45644e] sm:inline-flex"><strong className="mr-1">{selected.length}</strong> meals planned</span>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-[#f2ecdf] px-2.5 py-2 text-xs font-semibold text-[#45644e] sm:hidden" aria-label={`${selected.length} meals planned`}><ChefHat size={14}/>{selected.length}</span>
+          </div>
+          {view==="recipes"&&(searchOpen
+            ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#526158]" size={17}/>
+                <Input autoFocus className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 pr-9 shadow-none sm:h-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search recipes" onBlur={()=>{if(!query)setSearchOpen(false)}}/>
+                <button type="button" aria-label="Close search" onClick={()=>{setQuery("");setSearchOpen(false)}} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-[#6d786f] hover:bg-[#f0ede4]"><X size={16}/></button>
+              </div>
+            : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white p-0 text-[#45644e] shadow-none sm:size-9"><Search size={18}/></Button>
+          )}
         </div>}
 
         <TabsContent value="recipes">
