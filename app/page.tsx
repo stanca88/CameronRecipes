@@ -178,6 +178,7 @@ export default function Home() {
     return()=>{if(unsubscribeRef.current)unsubscribeRef.current()};
   },[activeWeekKey,loaded]);
   useEffect(()=>{if(loaded)syncNow()},[loaded]);
+  useEffect(()=>{if(!loaded)return;const interval=setInterval(()=>{syncNow()},30000);return()=>clearInterval(interval)},[loaded]);
   const [columnCount,setColumnCount]=useState(3);
   useEffect(()=>{
     const update=()=>{const w=typeof window!=="undefined"?window.innerWidth:1200; if(w<640) setColumnCount(1); else if(w<1024) setColumnCount(2); else setColumnCount(3);};
@@ -226,9 +227,6 @@ export default function Home() {
         <img src="/family-taco-night.png?v=2" alt="Fresh ingredients prepared for family taco night" className="absolute inset-0 h-full w-full object-cover object-center"/>
         <div className="absolute inset-0 bg-gradient-to-r from-[#172c20]/20 via-[#172c20]/12 to-[#172c20]/6" aria-hidden="true"/>
         <div className="absolute right-4 top-4 z-10 flex gap-2 sm:right-6 sm:top-6">
-          <Button onClick={syncNow} disabled={syncing} aria-label="Sync recipes now" className="h-11 rounded-lg border border-[#d8ddd5] bg-white px-4 text-sm font-semibold text-[#244832] shadow-none hover:bg-[#f4f7f3] sm:h-10">
-            {syncing ? "Syncing…" : "Sync now"}
-          </Button>
           <Button onClick={()=>setOpen(true)} aria-label="Add a recipe" className="h-11 rounded-lg bg-white px-4 text-sm font-semibold text-[#244832] shadow-none hover:bg-[#f4f7f3] sm:h-10"><Plus size={18}/>Add recipe</Button>
         </div>
         <div className="relative flex min-h-[300px] max-w-2xl flex-col justify-center px-5 py-7 text-white sm:min-h-[350px] sm:px-10 lg:px-12"><div className="w-fit max-w-full rounded-2xl bg-[#13271d]/75 py-5 pl-5 pr-10 shadow-sm backdrop-blur-sm sm:py-7 sm:pl-7 sm:pr-12">
