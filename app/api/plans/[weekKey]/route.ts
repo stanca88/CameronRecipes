@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/app/lib/errors";
 import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function GET(
@@ -17,7 +18,7 @@ export async function GET(
     if (error && error.code !== "PGRST116") throw error;
     return Response.json(data || null);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch plan";
+    const message = getErrorMessage(error, "Failed to fetch plan");
     return Response.json({ error: message }, { status: 500 });
   }
 }
@@ -47,7 +48,7 @@ export async function PUT(
     if (error) throw error;
     return Response.json(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to save plan";
+    const message = getErrorMessage(error, "Failed to save plan");
     return Response.json({ error: message }, { status: 500 });
   }
 }

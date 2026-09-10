@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/app/lib/errors";
 import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function GET() {
@@ -12,7 +13,7 @@ export async function GET() {
     if (error) throw error;
     return Response.json({ recipes: data || [] });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch recipes";
+    const message = getErrorMessage(error, "Failed to fetch recipes");
     return Response.json({ error: message }, { status: 500 });
   }
 }
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     if (error) throw error;
     return Response.json(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create recipe";
+    const message = getErrorMessage(error, "Failed to create recipe");
     return Response.json({ error: message }, { status: 500 });
   }
 }

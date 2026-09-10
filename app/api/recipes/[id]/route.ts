@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/app/lib/errors";
 import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function PUT(
@@ -19,7 +20,7 @@ export async function PUT(
     if (error) throw error;
     return Response.json(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update recipe";
+    const message = getErrorMessage(error, "Failed to update recipe");
     return Response.json({ error: message }, { status: 500 });
   }
 }
@@ -40,7 +41,7 @@ export async function DELETE(
     if (error) throw error;
     return Response.json({ success: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to delete recipe";
+    const message = getErrorMessage(error, "Failed to delete recipe");
     return Response.json({ error: message }, { status: 500 });
   }
 }
