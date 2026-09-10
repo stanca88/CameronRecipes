@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/app/lib/errors";
 import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function PATCH(
@@ -20,7 +21,7 @@ export async function PATCH(
     if (error) throw error;
     return Response.json(data);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update item";
+    const message = getErrorMessage(error, "Failed to update item");
     return Response.json({ error: message }, { status: 500 });
   }
 }

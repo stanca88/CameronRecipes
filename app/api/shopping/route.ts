@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@/app/lib/errors";
 import { getSupabaseClient } from "@/app/lib/supabase";
 
 export async function GET(request: Request) {
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     if (error) throw error;
     return Response.json({ items: data || [] });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch shopping list";
+    const message = getErrorMessage(error, "Failed to fetch shopping list");
     return Response.json({ error: message }, { status: 500 });
   }
 }
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     if (error) throw error;
     return Response.json({ items: data });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to save shopping list";
+    const message = getErrorMessage(error, "Failed to save shopping list");
     return Response.json({ error: message }, { status: 500 });
   }
 }
