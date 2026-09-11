@@ -69,24 +69,34 @@ function weekRangeFromKey(key:string) {
   return `${left} – ${right}`;
 }
 
-const CUISINE_RULES:{label:string;pattern:RegExp}[]=[
-  {label:"Mexican",pattern:/taco|burrito|enchilada|quesadilla|salsa|guacamole|tortilla|fajita|chorizo|carnitas|pico de gallo|elote|tamale|mole\b/i},
-  {label:"Italian",pattern:/pasta|spaghetti|lasagna|risotto|parmesan|marinara|pesto|bolognese|carbonara|ravioli|gnocchi|pizza|italian/i},
-  {label:"Japanese",pattern:/sushi|teriyaki|ramen|miso|tempura|udon|edamame|soy sauce|wasabi|japanese/i},
-  {label:"Chinese",pattern:/stir.?fry|kung pao|fried rice|dumpling|hoisin|szechuan|lo mein|chow mein|wonton|chinese/i},
-  {label:"Thai",pattern:/pad thai|thai|curry paste|coconut curry|satay|tom yum/i},
-  {label:"Indian",pattern:/curry|tikka|masala|naan|paneer|tandoori|biryani|dal\b|indian/i},
-  {label:"Mediterranean",pattern:/hummus|falafel|tzatziki|pita|tabbouleh|shawarma|gyro|mediterranean/i},
-  {label:"Greek",pattern:/feta|tzatziki|souvlaki|spanakopita|moussaka|greek salad|greek olives|kalamata|baklava/i},
-  {label:"French",pattern:/french|baguette|croissant|ratatouille|quiche|béchamel|bechamel/i},
-  {label:"Korean",pattern:/kimchi|bulgogi|gochujang|korean/i},
-  {label:"American",pattern:/burger|bbq|barbecue|meatloaf|mac and cheese|mac & cheese|casserole|chili\b|cornbread|pot pie|american/i},
+const CUISINE_RULES:{label:string;strong:RegExp;generic?:RegExp}[]=[
+  {label:"Mexican",strong:/taco|burrito|enchilada|quesadilla|salsa|guacamole|tortilla|fajita|chorizo|carnitas|pico de gallo|elote|tamale|mole\b/i,generic:/mexican/i},
+  {label:"Italian",strong:/pasta|spaghetti|lasagna|risotto|marinara|pesto|bolognese|carbonara|ravioli|gnocchi|pizza/i,generic:/italian|parmesan/i},
+  {label:"Japanese",strong:/sushi|teriyaki|ramen|tempura|udon|edamame|wasabi/i,generic:/japanese|miso|soy sauce/i},
+  {label:"Chinese",strong:/stir.?fry|kung pao|fried rice|dumpling|szechuan|lo mein|chow mein|wonton/i,generic:/chinese|hoisin/i},
+  {label:"Thai",strong:/pad thai|satay|tom yum/i,generic:/thai|curry paste|coconut curry/i},
+  {label:"Indian",strong:/tikka|masala|naan|tandoori|biryani/i,generic:/indian|curry|paneer|dal\b/i},
+  {label:"Mediterranean",strong:/hummus|falafel|tabbouleh|shawarma/i,generic:/mediterranean|pita/i},
+  {label:"Greek",strong:/feta|tzatziki|souvlaki|spanakopita|moussaka|greek salad|greek olives|kalamata|baklava|gyro/i,generic:/greek/i},
+  {label:"French",strong:/baguette|croissant|ratatouille|quiche|béchamel|bechamel/i,generic:/french/i},
+  {label:"Korean",strong:/kimchi|bulgogi|gochujang/i,generic:/korean/i},
+  {label:"American",strong:/burger|bbq|barbecue|meatloaf|mac and cheese|mac & cheese|casserole|chili\b|cornbread|pot pie/i,generic:/american/i},
 ];
 
+// Some ingredient names are just generic descriptors ("Greek-style yogurt",
+// "Italian seasoning", "French bread", "Chinese five spice") rather than a sign
+// the whole dish belongs to that cuisine. To avoid false-positive tags, a rule's
+// "strong" (dish-specific) terms can match anywhere in the title or ingredients,
+// but its broader "generic" terms (the bare cuisine name and common descriptor
+// words) only count as a match when they appear in the recipe's title, where
+// they're a much more reliable signal of the dish's actual cuisine.
 function cuisineFor(recipe:Recipe):string|null {
-  const haystack=[recipe.title,...(recipe.ingredients||[]).map(i=>i.name)].join(" ");
+  const title=recipe.title||"";
+  const ingredientText=(recipe.ingredients||[]).map(i=>i.name).join(" ");
+  const haystack=`${title} ${ingredientText}`;
   for(const rule of CUISINE_RULES){
-    if(rule.pattern.test(haystack)) return rule.label;
+    if(rule.strong.test(haystack)) return rule.label;
+    if(rule.generic&&rule.generic.test(title)) return rule.label;
   }
   return null;
 }
