@@ -154,10 +154,12 @@ export default function Home() {
   const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("plan");
   const [preRecipesView,setPreRecipesView]=useState("plan");
+  const [shareCopied,setShareCopied]=useState<"recipe"|"shop"|null>(null);
   const [planPicking,setPlanPicking]=useState(false);
   const [planQuery,setPlanQuery]=useState("");
+  const [planSearchOpen,setPlanSearchOpen]=useState(false);
   useEffect(()=>{if(view!=="recipes"){setSearchOpen(false);setQuery("")}},[view]);
-  useEffect(()=>{if(view!=="plan"){setPlanPicking(false);setPlanQuery("")}},[view]);
+  useEffect(()=>{if(view!=="plan"){setPlanPicking(false);setPlanQuery("");setPlanSearchOpen(false)}},[view]);
   const [syncing,setSyncing]=useState(false);
   const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
   const unsubscribeRef=useRef<(() => void)|null>(null);
@@ -284,6 +286,15 @@ export default function Home() {
   const changeServings=(id:string,delta:number)=>setServings(v=>({...v,[id]:Math.max(1,(v[id]||4)+delta)}));
   const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setIngredientsCollapsed(false);setCompletedSteps([]);window.scrollTo({top:0,behavior:"smooth"})};
   const toggleStepDone=(index:number)=>{setCompletedSteps(prev=>prev.includes(index)?prev.filter(i=>i!==index):[...prev,index])};
+  const shareLink=async(params:Record<string,string>,kind:"recipe"|"shop")=>{
+    const url=`${window.location.origin}${window.location.pathname}?${new URLSearchParams(params).toString()}`;
+    try{
+      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(url);
+      else window.prompt("Copy this link:",url);
+    }catch{window.prompt("Copy this link:",url)}
+    setShareCopied(kind);
+    setTimeout(()=>setShareCopied(current=>current===kind?null:current),2000);
+  };
   const parsedIngredients=()=>ingredients.split("\n").filter(Boolean).map(parseIngredientLine);
   const resetAdd=()=>{setTitle("");setUrl("");setIngredients("");setDirections("");setImageUrl("");setSourceName("");setAddMode("url");setImportError("");setImporting(false);setEditingRecipeId(null)};
   const openEditRecipe=(recipe:Recipe)=>{setEditingRecipeId(recipe.id);setTitle(recipe.title);setUrl(recipe.sourceUrl||"");setSourceName(recipe.sourceName||"");setImageUrl(recipe.image||"");setIngredients((recipe.ingredients||[]).map(ingredientLineFor).join("\n"));setDirections((recipe.directions||[]).join("\n"));setAddMode("manual");setSaveError("");setOpen(true)};
@@ -379,11 +390,16 @@ export default function Home() {
         <TabsContent value="plan">{planPicking
           ? <div>
               <div className="mb-4 flex items-center gap-2">
-                <Button variant="ghost" className="-ml-2 shrink-0 rounded-lg text-[#315d43] hover:bg-[#e8f0e8]" onClick={()=>{setPlanPicking(false);setPlanQuery("")}}><ArrowLeft size={18}/>Back</Button>
-                <div className="relative min-w-0 flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#526158]" size={17}/>
-                  <Input autoFocus className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 shadow-none sm:h-9" value={planQuery} onChange={e=>setPlanQuery(e.target.value)} placeholder="Search recipes"/>
-                </div>
+                <Button variant="ghost" className="-ml-2 shrink-0 rounded-lg text-[#315d43] hover:bg-[#e8f0e8]" onClick={()=>{setPlanPicking(false);setPlanQuery("");setPlanSearchOpen(false)}}><ArrowLeft size={18}/>Back</Button>
+                <div className="flex-1"/>
+                {planSearchOpen
+                  ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#526158]" size={17}/>
+                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 pr-9 shadow-none sm:h-9" value={planQuery} onChange={e=>setPlanQuery(e.target.value)} placeholder="Search recipes" onBlur={()=>{if(!planQuery)setPlanSearchOpen(false)}}/>
+                      <button type="button" aria-label="Close search" onClick={()=>{setPlanQuery("");setPlanSearchOpen(false)}} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-[#6d786f] hover:bg-[#f0ede4]"><X size={16}/></button>
+                    </div>
+                  : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setPlanSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white p-0 text-[#45644e] shadow-none sm:size-9"><Search size={18}/></Button>
+                }
               </div>
               {recipeGrid(recipes.filter(r=>r.title.toLowerCase().includes(planQuery.toLowerCase())))}
             </div>
