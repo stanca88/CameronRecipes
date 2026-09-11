@@ -1,9 +1,16 @@
 type JsonLd = Record<string, unknown>;
 
+const NAMED_ENTITIES: Record<string, string> = {
+  quot:'"', apos:"'", amp:"&", lt:"<", gt:">", nbsp:" ",
+  mdash:"—", ndash:"–", hellip:"…",
+  lsquo:"\u2018", rsquo:"\u2019", ldquo:"\u201c", rdquo:"\u201d",
+};
+
 function decode(value: string) {
   return value
-    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-z]+);/gi, (match, name) => NAMED_ENTITIES[name.toLowerCase()] ?? match);
 }
 
 function allObjects(value: unknown): JsonLd[] {
@@ -89,6 +96,80 @@ function publisherName(value: unknown): string {
   return "";
 }
 
+function stripTags(value: string): string {
+  return decode(value.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+function metaContent(html: string, name: string, attr: "property" | "name" = "property"): string {
+  const forward = new RegExp(`<meta[^>]+${attr}=["']${name}["'][^>]*content=["']([^"']*)["']`, "i").exec(html);
+  if (forward) return decode(forward[1]);
+  const backward = new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*${attr}=["']${name}["']`, "i").exec(html);
+  return backward ? decode(backward[1]) : "";
+}
+
+// Some sites (e.g. Jetpack/WordPress.com's built-in recipe block, used by Smitten
+// Kitchen and others) mark recipes up with schema.org microdata (itemprop
+// attributes) instead of a JSON-LD <script> block. Extract from that as a fallback
+// when no JSON-LD recipe was found.
+function extractBalancedTag(html: string, tagName: string, matchIndex: number): string {
+  const boundaryRe = new RegExp(`<${tagName}\\b|</${tagName}>`, "gi");
+  boundaryRe.lastIndex = matchIndex;
+  let depth = 0;
+  let match: RegExpExecArray | null;
+  while ((match = boundaryRe.exec(html))) {
+    if (match[0][1] === "/") {
+      depth--;
+      if (depth === 0) return html.slice(matchIndex, match.index + match[0].length);
+    } else {
+      depth++;
+    }
+  }
+  return html.slice(matchIndex);
+}
+
+function microdataRecipeBlock(html: string): string | null {
+  const openTagRe = /<([a-zA-Z0-9]+)\b[^>]*itemtype=["'](?:https?:)?\/\/schema\.org\/Recipe["'][^>]*>/i;
+  const match = openTagRe.exec(html);
+  if (!match) return null;
+  return extractBalancedTag(html, match[1], match.index);
+}
+
+function microdataFieldAll(block: string, prop: string): string[] {
+  const openTagRe = new RegExp(`<([a-zA-Z0-9]+)\\b[^>]*itemprop=["']${prop}["'][^>]*>`, "gi");
+  const results: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = openTagRe.exec(block))) {
+    const tag = match[1];
+    const start = match.index + match[0].length;
+    const closeIdx = block.indexOf(`</${tag}>`, start);
+    if (closeIdx === -1) continue;
+    const text = stripTags(block.slice(start, closeIdx));
+    if (text) results.push(text);
+  }
+  return results;
+}
+
+function microdataDirections(block: string): string[] {
+  const openTagRe = /<div\b[^>]*class=["'][^"']*(?:recipe-directions|recipe-instructions)[^"']*["'][^>]*>/i;
+  const match = openTagRe.exec(block);
+  if (!match) return [];
+  const full = extractBalancedTag(block, "div", match.index);
+  const inner = full.slice(match[0].length, full.length - "</div>".length);
+  return inner.split(/<\/p>|<br\s*\/?>/i).map(part=>stripTags(part)).filter(Boolean);
+}
+
+function extractMicrodataRecipe(html: string) {
+  const block = microdataRecipeBlock(html);
+  if (!block) return null;
+  const title = microdataFieldAll(block, "name")[0] || "";
+  const ingredients = microdataFieldAll(block, "recipeIngredient");
+  if (!title || !ingredients.length) return null;
+  const directions = microdataDirections(block);
+  const image = metaContent(html, "og:image");
+  const sourceName = metaContent(html, "og:site_name");
+  return { title, ingredients, image, directions, sourceName };
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json() as { url?: string };
@@ -118,6 +199,16 @@ export async function POST(request: Request) {
       }
     }
     if (!recipe) {
+      const microdata = extractMicrodataRecipe(html);
+      if (microdata) {
+        return Response.json({
+          title: microdata.title,
+          ingredients: microdata.ingredients,
+          image: microdata.image,
+          directions: microdata.directions,
+          sourceName: microdata.sourceName || url.hostname.replace(/^www\./, ""),
+        });
+      }
       return Response.json({
         error: sawLdJson
           ? "We found recipe metadata, but couldn't read it. Try a different recipe link or add it manually."
@@ -128,7 +219,7 @@ export async function POST(request: Request) {
     const ingredients = Array.isArray(recipe.recipeIngredient)
       ? recipe.recipeIngredient.filter((item): item is string => typeof item === "string").map(item=>decode(item).trim())
       : [];
-    const image = recipeImage(recipe.image);
+    const image = recipeImage(recipe.image) || metaContent(html, "og:image");
     const directions = instructionText(recipe.recipeInstructions);
     if (!title || !ingredients.length) return Response.json({error:"We found the page, but its title or ingredients were missing. You can still use Add manually."},{status:422});
     const sourceName = publisherName(recipe.publisher) || url.hostname.replace(/^www\./, "");
