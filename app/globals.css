@@ -134,6 +134,15 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* scrollbar-gutter already reserves the scrollbar's width, so Radix's own
+   scroll-lock padding/margin compensation (added when a Select/Dialog opens)
+   would double up and shift the layout. Disable it. */
+body[data-scroll-locked] {
+  overflow: visible !important;
+  padding-right: 0 !important;
+  margin-right: 0 !important;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
