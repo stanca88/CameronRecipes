@@ -10,12 +10,53 @@ function allObjects(value: unknown): JsonLd[] {
   if (Array.isArray(value)) return value.flatMap(allObjects);
   if (!value || typeof value !== "object") return [];
   const object = value as JsonLd;
-  return [object, ...allObjects(object["@graph"])];
+  return [object, ...allObjects(object["@graph"]), ...allObjects(object.mainEntity), ...allObjects(object.itemListElement)];
 }
 
 function isRecipe(object: JsonLd) {
   const type = object["@type"];
-  return type === "Recipe" || (Array.isArray(type) && type.includes("Recipe"));
+  const matches = (t: unknown) => typeof t === "string" && t.trim().toLowerCase() === "recipe";
+  return matches(type) || (Array.isArray(type) && type.some(matches));
+}
+
+// Many real-world JSON-LD blocks are technically invalid JSON: they contain raw,
+// unescaped control characters (literal newlines/tabs) inside string values, or a
+// trailing comma before a closing brace/bracket. Both make JSON.parse throw even
+// though the data itself is otherwise fine. Repair those issues before parsing.
+function sanitizeJsonLd(raw: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inString) {
+      if (escaped) {
+        out += ch;
+        escaped = false;
+        continue;
+      }
+      if (ch === "\\") { out += ch; escaped = true; continue; }
+      if (ch === '"') { out += ch; inString = false; continue; }
+      if (ch === "\n") { out += "\\n"; continue; }
+      if (ch === "\r") { continue; }
+      if (ch === "\t") { out += "\\t"; continue; }
+      if (ch.charCodeAt(0) < 0x20) continue;
+      out += ch;
+      continue;
+    }
+    if (ch === '"') { out += ch; inString = true; continue; }
+    out += ch;
+  }
+  return out.replace(/,(\s*[}\]])/g, "$1");
+}
+
+function parseLdJson(raw: string): unknown {
+  const trimmed = raw.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return JSON.parse(sanitizeJsonLd(trimmed));
+  }
 }
 
 function recipeImage(value:unknown):string {
@@ -69,7 +110,7 @@ export async function POST(request: Request) {
     for (const block of blocks) {
       sawLdJson = true;
       try {
-        const parsed = JSON.parse(decode(block[1].trim()));
+        const parsed = parseLdJson(decode(block[1]));
         recipe = allObjects(parsed).find(isRecipe);
         if (recipe) break;
       } catch {
