@@ -77,7 +77,7 @@ const CUISINE_RULES:{label:string;pattern:RegExp}[]=[
   {label:"Thai",pattern:/pad thai|thai|curry paste|coconut curry|satay|tom yum/i},
   {label:"Indian",pattern:/curry|tikka|masala|naan|paneer|tandoori|biryani|dal\b|indian/i},
   {label:"Mediterranean",pattern:/hummus|falafel|tzatziki|pita|tabbouleh|shawarma|gyro|mediterranean/i},
-  {label:"Greek",pattern:/greek|feta|tzatziki|souvlaki/i},
+  {label:"Greek",pattern:/feta|tzatziki|souvlaki|spanakopita|moussaka|greek salad|greek olives|kalamata|baklava/i},
   {label:"French",pattern:/french|baguette|croissant|ratatouille|quiche|béchamel|bechamel/i},
   {label:"Korean",pattern:/kimchi|bulgogi|gochujang|korean/i},
   {label:"American",pattern:/burger|bbq|barbecue|meatloaf|mac and cheese|mac & cheese|casserole|chili\b|cornbread|pot pie|american/i},
