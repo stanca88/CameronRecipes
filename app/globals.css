@@ -136,11 +136,18 @@ html {
 
 /* scrollbar-gutter already reserves the scrollbar's width, so Radix's own
    scroll-lock padding/margin compensation (added when a Select/Dialog opens)
-   would double up and shift the layout. Disable it. */
-body[data-scroll-locked] {
+   would double up and shift the layout. Disable it.
+   Radix injects its own !important rule at runtime (after this stylesheet),
+   so a same-specificity selector loses the tie-break to insertion order.
+   Use a more specific selector (html body[...]) so ours always wins. */
+html body[data-scroll-locked] {
   overflow: visible !important;
   padding-right: 0 !important;
+  padding-left: 0 !important;
+  padding-top: 0 !important;
   margin-right: 0 !important;
+  margin-left: 0 !important;
+  margin-top: 0 !important;
 }
 
 body {
