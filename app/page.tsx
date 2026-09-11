@@ -583,10 +583,10 @@ export default function Home() {
                       const items = grocery.filter(i=>i.category===cat);
                       return (
                         <section key={cat} className="min-w-0 w-full overflow-hidden rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] shadow-[0_2px_10px_rgba(45,61,50,.04)]">
-                          <div className="flex items-center justify-between border-b border-[#ebe6dc] bg-[#f6f1e7] px-4 py-3">
+                          <button type="button" onClick={()=>setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} className="flex w-full items-center justify-between border-b border-[#ebe6dc] bg-[#f6f1e7] px-4 py-3 text-left hover:bg-[#f1ead9]">
                             <h3 className="font-serif text-lg font-bold">{cat}</h3>
-                            <button onClick={(e)=>{e.stopPropagation();setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))}} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} aria-label={collapsed[cat]?`Expand ${cat}`:`Collapse ${cat}`} className="grid size-11 shrink-0 place-items-center rounded-md border border-transparent text-[#45644e] hover:bg-white/80 sm:size-8">{collapsed[cat]?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</button>
-                          </div>
+                            <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-md text-[#45644e] sm:size-8">{collapsed[cat]?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
+                          </button>
                           <div id={`cat-${cat}`} className={collapsed[cat]?"hidden p-2":"p-2"}>
                             {items.map(i=>{const key=`${i.name.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`;const done=syncedChecked.includes(key);return (
                               <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-2 rounded-xl px-2 py-2.5 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
