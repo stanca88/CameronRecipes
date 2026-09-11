@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { subscribeToShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan } from "@/app/lib/realtime";
+import { subscribeToShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan, subscribeToHistory, fetchHistory, saveHistoryWeek } from "@/app/lib/realtime";
 
 type Ingredient = { name: string; amount: number; unit: string; category: string };
 type Recipe = { id: string; title: string; emoji: string; time: string; serves: number; author: string; ingredients: Ingredient[]; image?: string; directions?: string[]; sourceUrl?: string; sourceName?: string };
@@ -130,6 +130,7 @@ export default function Home() {
   const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
   const unsubscribeRef=useRef<(() => void)|null>(null);
   const planUnsubscribeRef=useRef<(() => void)|null>(null);
+  const historyUnsubscribeRef=useRef<(() => void)|null>(null);
   const activeWeekKey=weekKey(weekOffset);
   const activePlan=plans[activeWeekKey]||{selected:[],servings:{},checked:[],chefs:{},days:{}};
   const visibleRecipeIds=new Set(recipes.map(recipe=>recipe.id));
@@ -150,6 +151,23 @@ export default function Home() {
   const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)){const normalized=shared.map((r:any)=>({...r,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>normalizeIngredient(i)).filter((i:Ingredient|null):i is Ingredient=>i!==null):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string=>typeof d==="string"):[]}));setRecipes(normalized);setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>[key,{...plan,selected:plan.selected.filter(id=>normalized.some(recipe=>recipe.id===id)),servings:Object.fromEntries(Object.entries(plan.servings).filter(([id])=>normalized.some(recipe=>recipe.id===id))),checked:plan.checked.filter(id=>normalized.some(recipe=>recipe.id===id)),chefs:Object.fromEntries(Object.entries(plan.chefs||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id))),days:Object.fromEntries(Object.entries(plan.days||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id)))}])));return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
   const syncNow=async()=>{setSyncing(true);try{const hasShared=await loadSharedRecipes();if(hasShared){const response=await fetch(`/api/shopping?week_key=${encodeURIComponent(activeWeekKey)}`);if(response.ok){const {items}=await response.json();if(Array.isArray(items))setShoppingItems(items)}}return hasShared}finally{setSyncing(false)}};
   useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
+  const mergeRemoteHistory=(remoteWeeks:any[])=>{
+    if(!Array.isArray(remoteWeeks))return;
+    const normalized:SavedWeek[]=remoteWeeks.map(w=>({id:w.id,label:w.label,savedAt:w.saved_at,meals:Array.isArray(w.meals)?w.meals:[]}));
+    setHistory(current=>{
+      const byId=new Map(current.map(w=>[w.id,w]));
+      normalized.forEach(w=>byId.set(w.id,w));
+      return Array.from(byId.values()).sort((a,b)=>new Date(b.savedAt).getTime()-new Date(a.savedAt).getTime());
+    });
+  };
+  useEffect(()=>{
+    if(!loaded)return;
+    let cancelled=false;
+    (async()=>{try{const weeks=await fetchHistory();if(!cancelled)mergeRemoteHistory(weeks)}catch(e){console.error("Failed to fetch history:",e)}})();
+    if(historyUnsubscribeRef.current)historyUnsubscribeRef.current();
+    historyUnsubscribeRef.current=subscribeToHistory(mergeRemoteHistory);
+    return()=>{cancelled=true;if(historyUnsubscribeRef.current)historyUnsubscribeRef.current()};
+  },[loaded]);
   useEffect(()=>{
     if(!loaded)return;
     const currentKey=weekKey(0);
@@ -160,7 +178,7 @@ export default function Home() {
       savedAt:new Date().toISOString(),
       meals:recipes.filter(recipe=>plan.selected.includes(recipe.id)).map(recipe=>({id:recipe.id,title:recipe.title,emoji:recipe.emoji,people:plan.servings[recipe.id]||4,chef:plan.chefs?.[recipe.id]?.trim()||undefined,day:plan.days?.[recipe.id]?.trim()||undefined}))
     })).filter(week=>week.meals.length>0);
-    if(newlyCompleted.length)setHistory(current=>[...newlyCompleted,...current]);
+    if(newlyCompleted.length){setHistory(current=>[...newlyCompleted,...current]);newlyCompleted.forEach(week=>{saveHistoryWeek(week).catch(e=>console.error("Failed to save history week:",e))})}
   },[loaded,plans,recipes,history]);
 
   const grocery=useMemo(()=>{
