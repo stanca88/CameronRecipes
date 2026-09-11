@@ -433,7 +433,7 @@ export default function Home() {
         <div className="relative flex flex-col gap-4 px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-[#d5e7d8]">Cameron Family Table</p>
-            <h2 className="mt-1 font-serif text-2xl font-medium leading-tight transition-opacity duration-500 sm:text-3xl lg:text-4xl">{headerTagline}</h2>
+            <h2 className="mt-1 min-h-[5.625rem] font-serif text-2xl font-medium leading-tight transition-opacity duration-500 sm:min-h-[7.03125rem] sm:text-3xl lg:min-h-[8.4375rem] lg:text-4xl">{headerTagline}</h2>
           </div>
           <Button type="button" onClick={()=>goAway("recipes")} className="flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-white/40 bg-white/15 px-4 text-sm font-semibold text-white shadow-none backdrop-blur-sm transition-colors hover:bg-white hover:text-[#244832] sm:h-auto sm:w-28 sm:flex-col sm:justify-center sm:gap-2 sm:self-stretch sm:rounded-2xl sm:py-4"><BookOpen size={18} className="sm:hidden"/><BookOpen size={28} className="hidden sm:block"/><span>Recipes</span></Button>
         </div>
