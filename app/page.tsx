@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
-import { ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, ChevronDown, ChevronUp, History as HistoryIcon, Minus, MoreHorizontal, Pencil, Plus, Search, ShoppingBasket, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, ChevronDown, ChevronUp, History as HistoryIcon, Minus, MoreHorizontal, Pencil, Plus, RefreshCw, Search, ShoppingBasket, Trash2, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -518,6 +518,7 @@ export default function Home() {
       {view!=="recipes"&&<header className="relative mb-3 overflow-hidden rounded-[1.75rem]">
         <div className="absolute inset-0" aria-hidden="true">{headerImages.map((src,i)=><img key={src+i} src={src} alt="" className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000 ease-in-out ${i===headerImageIndex?"opacity-100":"opacity-0"}`}/>)}</div>
         <div className="absolute inset-0 bg-gradient-to-r from-[#172c20]/70 via-[#172c20]/55 to-[#172c20]/35" aria-hidden="true"/>
+        <button type="button" onClick={()=>syncNow()} aria-label="Refresh" disabled={syncing} className="absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full border border-white/40 bg-white/15 text-white shadow-none backdrop-blur-sm transition-colors hover:bg-white hover:text-[#244832] disabled:opacity-60"><RefreshCw size={16} className={syncing?"animate-spin":""}/></button>
         <div className="relative flex flex-col gap-4 px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-[#d5e7d8]">Cameron Family Table</p>
