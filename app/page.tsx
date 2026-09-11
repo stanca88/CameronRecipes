@@ -244,7 +244,7 @@ export default function Home() {
           </div>
         </div>
       </article> : <>
-      <header className="relative mb-6 overflow-hidden rounded-[1.75rem]">
+      {view!=="recipes"&&<header className="relative mb-6 overflow-hidden rounded-[1.75rem]">
         <img src="/family-taco-night.png?v=2" alt="Fresh ingredients prepared for family taco night" className="absolute inset-0 h-full w-full object-cover object-center"/>
         <div className="absolute inset-0 bg-gradient-to-r from-[#172c20]/70 via-[#172c20]/55 to-[#172c20]/35" aria-hidden="true"/>
         <div className="relative flex flex-col gap-4 px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
@@ -254,7 +254,7 @@ export default function Home() {
             <p className="mt-2 max-w-md text-sm leading-6 text-white/85 sm:text-base">Keep the recipes everyone loves, plan the week together, and bring one tidy list to the store.</p>
           </div>
         </div>
-      </header>
+      </header>}
 
       <Tabs value={view} onValueChange={changeView}>
         {view==="recipes"
