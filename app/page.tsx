@@ -194,13 +194,14 @@ export default function Home() {
     const imgs=Array.from(new Set(recipes.map(r=>r.image).filter((img):img is string=>Boolean(img))));
     return imgs.length?imgs:["/family-taco-night.png?v=2"];
   },[recipes]);
-  const [headerImageIndex,setHeaderImageIndex]=useState(0);
-  useEffect(()=>{if(headerImageIndex>=headerImages.length)setHeaderImageIndex(0)},[headerImages,headerImageIndex]);
+  const headerTaglines=["Good food, happy family.","Plan the week together.","Bring one tidy list to the store.","Keep the recipes everyone loves in one place."];
+  const [headerTick,setHeaderTick]=useState(0);
   useEffect(()=>{
-    if(headerImages.length<2)return;
-    const interval=setInterval(()=>setHeaderImageIndex(i=>(i+1)%headerImages.length),6000);
+    const interval=setInterval(()=>setHeaderTick(t=>t+1),6000);
     return()=>clearInterval(interval);
-  },[headerImages.length]);
+  },[]);
+  const headerImageIndex=headerTick%headerImages.length;
+  const headerTagline=headerTaglines[headerTick%headerTaglines.length];
 
   useEffect(()=>{try{const params=new URLSearchParams(window.location.search);if(params.get("resetLocal")==="1"){localStorage.removeItem("cameron-family-table");params.delete("resetLocal");const newUrl=window.location.pathname+(params.toString()?"?"+params.toString():"");window.history.replaceState({},"",newUrl);}const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}}finally{setLoaded(true);loadSharedRecipes()}},[]);
   const [sharedLinkApplied,setSharedLinkApplied]=useState(false);
@@ -401,8 +402,7 @@ export default function Home() {
         <div className="relative flex flex-col gap-4 px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-[#d5e7d8]">Cameron Family Table</p>
-            <h2 className="mt-1 font-serif text-2xl font-medium leading-tight sm:text-3xl lg:text-4xl">Good food, happy family.</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-white/85 sm:text-base">Plan the week together, bring one tidy list to the store and keep the recipes everyone loves in one place.</p>
+            <h2 className="mt-1 font-serif text-2xl font-medium leading-tight transition-opacity duration-500 sm:text-3xl lg:text-4xl">{headerTagline}</h2>
           </div>
           <Button type="button" onClick={()=>goAway("recipes")} className="flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-white/40 bg-white/15 px-4 text-sm font-semibold text-white shadow-none backdrop-blur-sm transition-colors hover:bg-white hover:text-[#244832] sm:h-auto sm:w-28 sm:flex-col sm:justify-center sm:gap-2 sm:self-stretch sm:rounded-2xl sm:py-4"><BookOpen size={18} className="sm:hidden"/><BookOpen size={28} className="hidden sm:block"/><span>Recipes</span></Button>
         </div>
