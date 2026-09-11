@@ -163,6 +163,25 @@ function pluralizeName(name:string):string {
   return prefix+pluralizeWord(last);
 }
 
+const PREP_TRAILING_WORD_PATTERN=/^(minced|chopped|diced|sliced|slivered|julienned|shredded|grated|melted|softened|beaten|whisked|peeled|seeded|cored|pitted|trimmed|halved|quartered|crushed|mashed|drained|rinsed|room temperature|cold|divided|optional|to taste|for garnish|for serving)\b/i;
+
+function cleanIngredientName(rawName:string):string {
+  let name=rawName
+    .replace(/\([^)]*\)/g," ")
+    .replace(/\s{2,}/g," ")
+    .trim();
+  const commaIndex=name.indexOf(",");
+  if(commaIndex>0){
+    const before=name.slice(0,commaIndex).trim();
+    const after=name.slice(commaIndex+1).trim();
+    if(before&&(!after||PREP_TRAILING_WORD_PATTERN.test(after)||/^and\b/i.test(after)||/\bcut into\b/i.test(after))){
+      name=before;
+    }
+  }
+  name=name.replace(/\s+(?:and\s+)?(?:cut|sliced|chopped|diced|trimmed)\s+into\b.*$/i,"").trim();
+  return name||rawName.trim();
+}
+
 function categoryFor(name:string) {
   const value=name.toLowerCase();
   if(/chicken|beef|turkey|pork|sausage|bacon|salmon|shrimp|fish/.test(value)) return "Meat & seafood";
@@ -195,16 +214,19 @@ function normalizeIngredient(raw:unknown):Ingredient|null {
   if(unit.toLowerCase()==="l"&&/^arge\b/i.test(name)){name=`l${name}`;unit=""}
   const trailingFraction=name.match(/^(?:(\d+)\/|\/)(\d+)\s+(.+)$/);
   if(trailingFraction){amount+=Number(trailingFraction[1]||1)/Number(trailingFraction[2]);name=trailingFraction[3]}
+  name=cleanIngredientName(name);
   return {name,amount,unit,category:typeof item.category==="string"&&item.category?item.category:categoryFor(name)};
 }
 
 function parseIngredientLine(line:string):Ingredient {
   const clean=line.trim();
-  const normalized=clean.replace(/^½/,"1/2 ").replace(/^¼/,"1/4 ").replace(/^¾/,"3/4 ").replace(/^⅓/,"1/3 ").replace(/^⅔/,"2/3 ");
+  const normalized=clean
+    .replace(/(\d)½/g,"$1 1/2").replace(/(\d)¼/g,"$1 1/4").replace(/(\d)¾/g,"$1 3/4").replace(/(\d)⅓/g,"$1 1/3").replace(/(\d)⅔/g,"$1 2/3")
+    .replace(/^½/,"1/2 ").replace(/^¼/,"1/4 ").replace(/^¾/,"3/4 ").replace(/^⅓/,"1/3 ").replace(/^⅔/,"2/3 ");
   const match=normalized.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s+(?:(cups?|tablespoons?|tbsp|teaspoons?|tsp|ounces?|oz|pounds?|lbs?|lb|grams?|g|kg|ml|liters?|l)\b\s*)?(.*)$/i);
   if(!match)return{name:clean,amount:1,unit:"",category:categoryFor(clean)};
   const rawAmount=match[1]; const amount=rawAmount.split(/\s+/).reduce((total,part)=>{if(!part.includes("/"))return total+Number(part);const [top,bottom]=part.split("/").map(Number);return total+top/bottom},0);
-  const name=(match[3]||clean).replace(/^of\s+/i,"").trim();
+  const name=cleanIngredientName((match[3]||clean).replace(/^of\s+/i,"").trim());
   return{name,amount,unit:abbreviateUnit(match[2]||""),category:categoryFor(name)};
 }
 
