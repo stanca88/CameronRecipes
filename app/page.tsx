@@ -251,15 +251,26 @@ export default function Home() {
           <div>
             <p className="text-xs font-bold uppercase tracking-[.2em] text-[#d5e7d8]">Cameron Family Table</p>
             <h2 className="mt-1 font-serif text-2xl font-medium leading-tight sm:text-3xl lg:text-4xl">Good food, happy family.</h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-white/85 sm:text-base">Keep the recipes everyone loves, plan the week together, and bring one tidy list to the store.</p>
+            <p className="mt-2 max-w-md text-sm leading-6 text-white/85 sm:text-base">Plan the week together, bring one tidy list to the store and keep the recipes everyone loves in one place.</p>
           </div>
         </div>
       </header>}
 
       <Tabs value={view} onValueChange={changeView}>
         {view==="recipes"
-          ? <div className="mb-4 pb-2 pt-4 sm:pt-3">
-              <Button variant="ghost" className="-ml-2 rounded-lg text-[#315d43] hover:bg-[#e8f0e8]" onClick={()=>setView(preRecipesView)}><ArrowLeft size={18}/>Back</Button>
+          ? <div className="mb-4 flex items-center justify-between gap-2 pb-2 pt-4 sm:pt-3">
+              <Button variant="ghost" className="-ml-2 shrink-0 rounded-lg text-[#315d43] hover:bg-[#e8f0e8]" onClick={()=>setView(preRecipesView)}><ArrowLeft size={18}/>Back</Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={()=>setOpen(true)} variant="outline" aria-label="Add a recipe" className="h-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white px-4 text-sm font-semibold text-[#45644e] shadow-none transition-colors hover:bg-[#315d43] hover:text-white sm:h-9"><Plus size={18}/>Add recipe</Button>
+                {searchOpen
+                  ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#526158]" size={17}/>
+                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 pr-9 shadow-none sm:h-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search recipes" onBlur={()=>{if(!query)setSearchOpen(false)}}/>
+                      <button type="button" aria-label="Close search" onClick={()=>{setQuery("");setSearchOpen(false)}} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-[#6d786f] hover:bg-[#f0ede4]"><X size={16}/></button>
+                    </div>
+                  : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white p-0 text-[#45644e] shadow-none sm:size-9"><Search size={18}/></Button>
+                }
+              </div>
             </div>
           : <div className="mb-4 flex items-center justify-between gap-2 pb-2 pt-4 sm:pt-3">
               <div className="flex min-w-0 shrink items-center gap-2">
@@ -278,17 +289,6 @@ export default function Home() {
         </div>}
 
         <TabsContent value="recipes">
-          <div className="mb-4 flex items-center justify-end gap-2">
-            <Button onClick={()=>setOpen(true)} variant="outline" aria-label="Add a recipe" className="h-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white px-4 text-sm font-semibold text-[#45644e] shadow-none transition-colors hover:bg-[#315d43] hover:text-white sm:h-9"><Plus size={18}/>Add recipe</Button>
-            {searchOpen
-              ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#526158]" size={17}/>
-                  <Input autoFocus className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 pr-9 shadow-none sm:h-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search recipes" onBlur={()=>{if(!query)setSearchOpen(false)}}/>
-                  <button type="button" aria-label="Close search" onClick={()=>{setQuery("");setSearchOpen(false)}} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-[#6d786f] hover:bg-[#f0ede4]"><X size={16}/></button>
-                </div>
-              : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white p-0 text-[#45644e] shadow-none sm:size-9"><Search size={18}/></Button>
-            }
-          </div>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{recipes.filter(r=>r.title.toLowerCase().includes(query.toLowerCase())).map(r=><article key={r.id} onClick={()=>openRecipe(r)} className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-white transition ${selected.includes(r.id)?"border-[#7ea087] shadow-[0_0_0_2px_rgba(65,98,75,.12)]":"border-[#e1ddd3] hover:-translate-y-1 hover:shadow-lg"}`}><div className="absolute left-3 top-3 z-10"><TooltipProvider><Tooltip><TooltipTrigger aria-label={selected.includes(r.id)?`Remove ${r.title} from week`:`Add ${r.title} to week`} onClick={event=>{event.stopPropagation();toggle(r.id)}} className={`grid size-11 place-items-center rounded-full border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315d43]/35 sm:size-10 ${selected.includes(r.id)?"border-[#315d43] bg-[#315d43] text-white hover:bg-[#274d37]":"border-[#d8d5cd] bg-white/95 text-[#315d43] hover:bg-[#edf3ee]"}`}>{selected.includes(r.id)?<Check size={20}/>:<Plus size={21}/>}</TooltipTrigger><TooltipContent side="top" sideOffset={6} className="bg-[#1f3529] text-white">{selected.includes(r.id)?"Remove from week":"Add to week"}</TooltipContent></Tooltip></TooltipProvider></div><div className="absolute right-3 top-3 z-10 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"><DropdownMenu><DropdownMenuTrigger asChild><button onClick={event=>event.stopPropagation()} aria-label={`More actions for ${r.title}`} className="grid size-11 place-items-center rounded-lg border border-white/40 bg-white/40 text-[#304439] shadow-sm backdrop-blur-sm transition-colors hover:border-[#d8d5cd] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315d43]/35 sm:size-10"><MoreHorizontal size={21}/></button></DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-44 bg-white"><DropdownMenuItem variant="destructive" onClick={event=>{event.stopPropagation();setRecipeToDelete(r)}}><Trash2/>Delete recipe</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>{(r.image|| (r.id==="roasted-veg-bowl"?"/veg-bowl.jpg": r.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": r.id==="beef-stew"?"/beef-stew.jpg":"")) ? <img src={r.image|| (r.id==="roasted-veg-bowl"?"/veg-bowl.jpg": r.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": r.id==="beef-stew"?"/beef-stew.jpg":"")} alt={r.title} className="h-44 w-full object-cover"/> : <div className="grid h-36 place-items-center bg-[#edf2eb] text-5xl">{r.emoji}</div>}<div className="min-w-0 p-5"><h3 className="truncate font-serif text-xl font-bold" title={r.title}>{r.title}</h3><p className="mt-1 text-sm text-[#6d786f]">{r.time}{r.sourceUrl?<> · <a href={r.sourceUrl} target="_blank" rel="noreferrer" className="font-medium text-[#45644e] underline decoration-[#45644e]/35 underline-offset-2 hover:decoration-[#45644e]" onClick={event=>event.stopPropagation()}>{r.sourceName||"Recipe source"}</a></>:null}</p><div className="mt-5 border-t border-[#ebe7df] pt-4"><span className="text-xs text-[#788078]">Added by {r.author}</span></div></div></article>)}</div>
         </TabsContent>
 
