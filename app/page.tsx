@@ -81,6 +81,15 @@ function cuisineFor(recipe:Recipe):string|null {
   return null;
 }
 
+function recipeMatchesQuery(recipe:Recipe, query:string) {
+  const q=query.trim().toLowerCase();
+  if(!q)return true;
+  if(recipe.title.toLowerCase().includes(q))return true;
+  const cuisine=cuisineFor(recipe);
+  if(cuisine&&cuisine.toLowerCase().includes(q))return true;
+  return false;
+}
+
 function categoryFor(name:string) {
   const value=name.toLowerCase();
   if(/chicken|beef|turkey|pork|sausage|bacon|salmon|shrimp|fish/.test(value)) return "Meat & seafood";
@@ -386,7 +395,7 @@ export default function Home() {
                 {searchOpen
                   ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
                       <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#526158]" size={17}/>
-                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 pr-9 shadow-none sm:h-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search recipes" onBlur={()=>{if(!query)setSearchOpen(false)}}/>
+                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 pr-9 shadow-none sm:h-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by name or cuisine" onBlur={()=>{if(!query)setSearchOpen(false)}}/>
                       <button type="button" aria-label="Close search" onClick={()=>{setQuery("");setSearchOpen(false)}} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-[#6d786f] hover:bg-[#f0ede4]"><X size={16}/></button>
                     </div>
                   : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white p-0 text-[#45644e] shadow-none sm:size-9"><Search size={18}/></Button>
@@ -403,7 +412,7 @@ export default function Home() {
 
 
         <TabsContent value="recipes">
-          {recipeGrid(recipes.filter(r=>r.title.toLowerCase().includes(query.toLowerCase())))}
+          {recipeGrid(recipes.filter(r=>recipeMatchesQuery(r,query)))}
         </TabsContent>
 
         <TabsContent value="plan">{planPicking
@@ -414,13 +423,13 @@ export default function Home() {
                 {planSearchOpen
                   ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
                       <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#526158]" size={17}/>
-                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 pr-9 shadow-none sm:h-9" value={planQuery} onChange={e=>setPlanQuery(e.target.value)} placeholder="Search recipes" onBlur={()=>{if(!planQuery)setPlanSearchOpen(false)}}/>
+                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d9d5cc] bg-white pl-9 pr-9 shadow-none sm:h-9" value={planQuery} onChange={e=>setPlanQuery(e.target.value)} placeholder="Search by name or cuisine" onBlur={()=>{if(!planQuery)setPlanSearchOpen(false)}}/>
                       <button type="button" aria-label="Close search" onClick={()=>{setPlanQuery("");setPlanSearchOpen(false)}} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-[#6d786f] hover:bg-[#f0ede4]"><X size={16}/></button>
                     </div>
                   : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setPlanSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white p-0 text-[#45644e] shadow-none sm:size-9"><Search size={18}/></Button>
                 }
               </div>
-              {recipeGrid(recipes.filter(r=>r.title.toLowerCase().includes(planQuery.toLowerCase())))}
+              {recipeGrid(recipes.filter(r=>recipeMatchesQuery(r,planQuery)))}
             </div>
           : <div className="space-y-3">{recipes.filter(r=>selected.includes(r.id)).map((r,i)=><div key={r.id} role="button" tabIndex={0} onClick={()=>openRecipe(r)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openRecipe(r)}}} className="flex cursor-pointer flex-wrap items-center gap-3 rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-4 transition hover:border-[#9fae9e] hover:bg-[#f6f8f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315d43]/35 sm:flex-nowrap sm:gap-4">{r.image?<img src={r.image} alt="" className="size-14 shrink-0 rounded-xl object-cover sm:size-16"/>:<div className="grid size-14 shrink-0 place-items-center rounded-xl bg-[#eee5d4] text-2xl sm:size-16">{r.emoji}</div>}<div className="min-w-0 flex-1"><Input aria-label={`Day for ${r.title}`} value={days[r.id]||""} onChange={event=>setDay(r.id,event.target.value)} onClick={event=>event.stopPropagation()} placeholder={`Meal ${i+1}`} className="h-6 w-28 rounded-none border-0 border-b border-transparent bg-transparent px-0 py-0 text-xs font-semibold uppercase tracking-wide text-[#9a735e] shadow-none placeholder:text-[#9a9f9b] hover:border-[#ddd4c3] focus-visible:border-[#9a735e] focus-visible:ring-0"/><h3 className="truncate font-serif text-lg font-bold">{r.title}</h3></div><Input aria-label={`Chef cooking ${r.title}`} value={chefs[r.id]||""} onChange={event=>setChef(r.id,event.target.value)} onClick={event=>event.stopPropagation()} placeholder="Chef cooking" className="order-3 h-9 w-full rounded-lg border-transparent bg-transparent px-2 text-sm shadow-none transition placeholder:text-[#9a9f9b] hover:bg-[#f6f2ea] focus-visible:border-[#c9d6cb] focus-visible:bg-white sm:order-none sm:w-36"/><div className="order-4 flex w-full items-center justify-between rounded-xl bg-[#f2ecdf] p-2 sm:order-none sm:w-auto sm:justify-start" onClick={event=>event.stopPropagation()}><span className="ml-1 text-sm font-medium sm:hidden">Cooking for</span><Button size="icon" variant="ghost" className="size-11 rounded-full sm:size-8" onClick={()=>changeServings(r.id,-1)}><Minus size={17} className="sm:hidden"/><Minus size={15} className="hidden sm:block"/></Button><strong className="min-w-20 text-center text-sm">{servings[r.id]||4} people</strong><Button size="icon" variant="ghost" className="size-11 rounded-full sm:size-8" onClick={()=>changeServings(r.id,1)}><Plus size={17} className="sm:hidden"/><Plus size={15} className="hidden sm:block"/></Button></div><Button size="icon" variant="ghost" onClick={event=>{event.stopPropagation();toggle(r.id)}} aria-label="Remove meal" className="size-11 sm:size-9"><X size={19} className="sm:hidden"/><X size={16} className="hidden sm:block"/></Button></div>)}{selected.length>0&&<Button type="button" variant="outline" onClick={()=>setPlanPicking(true)} className="w-full rounded-2xl border-dashed border-[#c9d6cb] py-6 text-[#45644e] hover:bg-[#f2f5f1] hover:text-[#244832]"><Plus size={18}/>Add another recipe</Button>}{selected.length===0&&<div role="button" tabIndex={0} onClick={()=>setPlanPicking(true)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPlanPicking(true)}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-[#fffdf8]/60 p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315d43]/35"><ChefHat className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div>}</TabsContent>
 
