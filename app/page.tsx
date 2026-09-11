@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { subscribeToShoppingList, saveShoppingList, toggleShoppingItem } from "@/app/lib/realtime";
+import { subscribeToShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan } from "@/app/lib/realtime";
 
 type Ingredient = { name: string; amount: number; unit: string; category: string };
 type Recipe = { id: string; title: string; emoji: string; time: string; serves: number; author: string; ingredients: Ingredient[]; image?: string; directions?: string[]; sourceUrl?: string; sourceName?: string };
@@ -129,6 +129,7 @@ export default function Home() {
   const [syncing,setSyncing]=useState(false);
   const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
   const unsubscribeRef=useRef<(() => void)|null>(null);
+  const planUnsubscribeRef=useRef<(() => void)|null>(null);
   const activeWeekKey=weekKey(weekOffset);
   const activePlan=plans[activeWeekKey]||{selected:[],servings:{},checked:[],chefs:{},days:{}};
   const visibleRecipeIds=new Set(recipes.map(recipe=>recipe.id));
@@ -187,6 +188,38 @@ export default function Home() {
     if(unsubscribeRef.current)unsubscribeRef.current();
     unsubscribeRef.current=subscribeToShoppingList(activeWeekKey,(items:ShoppingItem[])=>setShoppingItems(items));
     return()=>{if(unsubscribeRef.current)unsubscribeRef.current()};
+  },[activeWeekKey,loaded]);
+  const planSignature=JSON.stringify(activePlan);
+  useEffect(()=>{
+    if(!loaded)return;
+    (async()=>{
+      try{
+        await saveWeeklyPlan(activeWeekKey,{selected_recipes:selected,servings,chefs,days});
+      }catch(e){console.error("Failed to save weekly plan:",e)}
+    })();
+  },[planSignature,activeWeekKey,loaded]);
+  const applyRemotePlan=(weekKeyToUpdate:string,remote:any)=>{
+    if(!remote)return;
+    setPlans(all=>{
+      const local=all[weekKeyToUpdate]||emptyPlan();
+      const merged:WeeklyPlan={
+        selected:Array.isArray(remote.selected_recipes)?remote.selected_recipes:[],
+        servings:remote.servings||{},
+        checked:local.checked,
+        chefs:remote.chefs||{},
+        days:remote.days||{},
+      };
+      if(JSON.stringify(merged)===JSON.stringify(local))return all;
+      return{...all,[weekKeyToUpdate]:merged};
+    });
+  };
+  useEffect(()=>{
+    if(!loaded)return;
+    let cancelled=false;
+    (async()=>{try{const remote=await fetchWeeklyPlan(activeWeekKey);if(!cancelled)applyRemotePlan(activeWeekKey,remote)}catch(e){console.error("Failed to fetch weekly plan:",e)}})();
+    if(planUnsubscribeRef.current)planUnsubscribeRef.current();
+    planUnsubscribeRef.current=subscribeToWeeklyPlan(activeWeekKey,(remote:any)=>applyRemotePlan(activeWeekKey,remote));
+    return()=>{cancelled=true;if(planUnsubscribeRef.current)planUnsubscribeRef.current()};
   },[activeWeekKey,loaded]);
   useEffect(()=>{if(loaded)syncNow()},[loaded]);
   useEffect(()=>{if(!loaded)return;const interval=setInterval(()=>{syncNow()},30000);return()=>clearInterval(interval)},[loaded]);
