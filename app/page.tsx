@@ -170,6 +170,7 @@ export default function Home() {
   useEffect(()=>{if(view!=="plan"){setPlanPicking(false);setPlanQuery("");setPlanSearchOpen(false)}},[view]);
   const [syncing,setSyncing]=useState(false);
   const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
+  const [planSynced,setPlanSynced]=useState<Record<string,boolean>>({});
   const unsubscribeRef=useRef<(() => void)|null>(null);
   const planUnsubscribeRef=useRef<(() => void)|null>(null);
   const historyUnsubscribeRef=useRef<(() => void)|null>(null);
@@ -294,14 +295,15 @@ export default function Home() {
   },[activeWeekKey,loaded]);
   const planSignature=JSON.stringify(activePlan);
   useEffect(()=>{
-    if(!loaded)return;
+    if(!loaded||!planSynced[activeWeekKey])return;
     (async()=>{
       try{
         await saveWeeklyPlan(activeWeekKey,{selected_recipes:selected,servings,chefs,days});
       }catch(e){console.error("Failed to save weekly plan:",e)}
     })();
-  },[planSignature,activeWeekKey,loaded]);
+  },[planSignature,activeWeekKey,loaded,planSynced]);
   const applyRemotePlan=(weekKeyToUpdate:string,remote:any)=>{
+    setPlanSynced(prev=>prev[weekKeyToUpdate]?prev:{...prev,[weekKeyToUpdate]:true});
     if(!remote)return;
     setPlans(all=>{
       const local=all[weekKeyToUpdate]||emptyPlan();
