@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
-import { ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, ChevronDown, ChevronUp, History as HistoryIcon, Minus, MoreHorizontal, Pencil, Plus, Search, Share2, ShoppingBasket, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, ChevronDown, ChevronUp, History as HistoryIcon, Minus, MoreHorizontal, Pencil, Plus, Search, ShoppingBasket, Trash2, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -163,7 +163,6 @@ export default function Home() {
   const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("plan");
   const [preRecipesView,setPreRecipesView]=useState("plan");
-  const [shareCopied,setShareCopied]=useState<"recipe"|"shop"|null>(null);
   const [planPicking,setPlanPicking]=useState(false);
   const [planQuery,setPlanQuery]=useState("");
   const [planSearchOpen,setPlanSearchOpen]=useState(false);
@@ -189,14 +188,26 @@ export default function Home() {
   const setChef=(id:string,name:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,chefs:{...(plan.chefs||{}),[id]:name}}}});
   const setDay=(id:string,day:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,days:{...(plan.days||{}),[id]:day}}}});
   const weekLabel=weekRange(weekOffset);
+  const headerImages=useMemo(()=>{
+    const imgs=Array.from(new Set(recipes.map(r=>r.image).filter((img):img is string=>Boolean(img))));
+    return imgs.length?imgs:["/family-taco-night.png?v=2"];
+  },[recipes]);
+  const [headerImageIndex,setHeaderImageIndex]=useState(0);
+  useEffect(()=>{if(headerImageIndex>=headerImages.length)setHeaderImageIndex(0)},[headerImages,headerImageIndex]);
+  useEffect(()=>{
+    if(headerImages.length<2)return;
+    const interval=setInterval(()=>setHeaderImageIndex(i=>(i+1)%headerImages.length),6000);
+    return()=>clearInterval(interval);
+  },[headerImages.length]);
 
   useEffect(()=>{try{const params=new URLSearchParams(window.location.search);if(params.get("resetLocal")==="1"){localStorage.removeItem("cameron-family-table");params.delete("resetLocal");const newUrl=window.location.pathname+(params.toString()?"?"+params.toString():"");window.history.replaceState({},"",newUrl);}const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}}finally{setLoaded(true);loadSharedRecipes()}},[]);
   const [sharedLinkApplied,setSharedLinkApplied]=useState(false);
   useEffect(()=>{
-    if(!loaded||sharedLinkApplied||!recipes.length)return;
+    if(!loaded||sharedLinkApplied)return;
     const params=new URLSearchParams(window.location.search);
     const sharedView=params.get("view");
-    if(!sharedView)return;
+    if(!sharedView){setSharedLinkApplied(true);return}
+    if(!recipes.length)return;
     setSharedLinkApplied(true);
     if(sharedView==="recipes"){
       setView("recipes");
@@ -208,6 +219,20 @@ export default function Home() {
       changeView("shop");
     }
   },[loaded,sharedLinkApplied,recipes]);
+  useEffect(()=>{
+    if(!loaded||!sharedLinkApplied)return;
+    const params=new URLSearchParams();
+    if(view==="recipes"){
+      params.set("view","recipes");
+      if(activeRecipe)params.set("recipe",activeRecipe.id);
+    }else if(view==="shop"){
+      params.set("view","shop");
+      params.set("week",String(weekOffset));
+    }
+    const search=params.toString();
+    const newUrl=window.location.pathname+(search?`?${search}`:"");
+    if(newUrl!==window.location.pathname+window.location.search)window.history.replaceState({},"",newUrl);
+  },[loaded,sharedLinkApplied,view,activeRecipe,weekOffset]);
   const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)){const normalized=shared.map((r:any)=>({...r,sourceUrl:r.sourceUrl||r.source_url||undefined,sourceName:r.sourceName||r.source_name||undefined,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>normalizeIngredient(i)).filter((i:Ingredient|null):i is Ingredient=>i!==null):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string=>typeof d==="string"):[]}));setRecipes(normalized);setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>[key,{...plan,selected:plan.selected.filter(id=>normalized.some(recipe=>recipe.id===id)),servings:Object.fromEntries(Object.entries(plan.servings).filter(([id])=>normalized.some(recipe=>recipe.id===id))),checked:plan.checked.filter(id=>normalized.some(recipe=>recipe.id===id)),chefs:Object.fromEntries(Object.entries(plan.chefs||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id))),days:Object.fromEntries(Object.entries(plan.days||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id)))}])));return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
   const syncNow=async()=>{setSyncing(true);try{const hasShared=await loadSharedRecipes();if(hasShared){const response=await fetch(`/api/shopping?week_key=${encodeURIComponent(activeWeekKey)}`);if(response.ok){const {items}=await response.json();if(Array.isArray(items))setShoppingItems(items)}}return hasShared}finally{setSyncing(false)}};
   useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
@@ -312,15 +337,6 @@ export default function Home() {
   const changeServings=(id:string,delta:number)=>setServings(v=>({...v,[id]:Math.max(1,(v[id]||4)+delta)}));
   const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setIngredientsCollapsed(false);setCompletedSteps([]);window.scrollTo({top:0,behavior:"smooth"})};
   const toggleStepDone=(index:number)=>{setCompletedSteps(prev=>prev.includes(index)?prev.filter(i=>i!==index):[...prev,index])};
-  const shareLink=async(params:Record<string,string>,kind:"recipe"|"shop")=>{
-    const url=`${window.location.origin}${window.location.pathname}?${new URLSearchParams(params).toString()}`;
-    try{
-      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(url);
-      else window.prompt("Copy this link:",url);
-    }catch{window.prompt("Copy this link:",url)}
-    setShareCopied(kind);
-    setTimeout(()=>setShareCopied(current=>current===kind?null:current),2000);
-  };
   const parsedIngredients=()=>ingredients.split("\n").filter(Boolean).map(parseIngredientLine);
   const resetAdd=()=>{setTitle("");setUrl("");setIngredients("");setDirections("");setImageUrl("");setSourceName("");setAddMode("url");setImportError("");setImporting(false);setEditingRecipeId(null)};
   const openEditRecipe=(recipe:Recipe)=>{setEditingRecipeId(recipe.id);setTitle(recipe.title);setUrl(recipe.sourceUrl||"");setSourceName(recipe.sourceName||"");setImageUrl(recipe.image||"");setIngredients((recipe.ingredients||[]).map(ingredientLineFor).join("\n"));setDirections((recipe.directions||[]).join("\n"));setAddMode("manual");setSaveError("");setOpen(true)};
@@ -352,7 +368,7 @@ export default function Home() {
       {activeRecipe ? <article>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <Button variant="ghost" className="-ml-2 rounded-lg text-[#315d43] hover:bg-[#e8f0e8]" onClick={()=>setActiveRecipe(null)}><ArrowLeft size={18}/>Back</Button>
-          <div className="flex flex-wrap gap-2"><Button onClick={()=>toggle(activeRecipe.id)} variant={selected.includes(activeRecipe.id)?"secondary":"default"} className={`rounded-lg ${selected.includes(activeRecipe.id)?"bg-[#e6efe7] text-[#244832] hover:bg-[#dce8de]":"bg-[#315d43] text-white hover:bg-[#274d37]"}`}>{selected.includes(activeRecipe.id)?<><Check/>Added to {weekRange(weekOffset)}</>:<><Plus/>Add to {weekRange(weekOffset)}</>}</Button><Button variant="outline" className="rounded-lg border-[#d8d5cd] bg-white text-[#315d43] hover:bg-[#edf3ee]" onClick={()=>shareLink({view:"recipes",recipe:activeRecipe.id},"recipe")}><Share2/>{shareCopied==="recipe"?"Link copied!":"Share"}</Button><Button variant="outline" className="rounded-lg border-[#d8d5cd] bg-white text-[#315d43] hover:bg-[#edf3ee]" onClick={()=>openEditRecipe(activeRecipe)}><Pencil/>Edit</Button><Button variant="outline" className="rounded-lg border-[#d7a39a] bg-white text-[#a33f32] hover:bg-[#fbe9e2] hover:text-[#8c3025]" onClick={()=>setRecipeToDelete(activeRecipe)}><Trash2/>Delete</Button></div>
+          <div className="flex flex-wrap gap-2"><Button onClick={()=>toggle(activeRecipe.id)} variant={selected.includes(activeRecipe.id)?"secondary":"default"} className={`rounded-lg ${selected.includes(activeRecipe.id)?"bg-[#e6efe7] text-[#244832] hover:bg-[#dce8de]":"bg-[#315d43] text-white hover:bg-[#274d37]"}`}>{selected.includes(activeRecipe.id)?<><Check/>Added to {weekRange(weekOffset)}</>:<><Plus/>Add to {weekRange(weekOffset)}</>}</Button><Button variant="outline" className="rounded-lg border-[#d8d5cd] bg-white text-[#315d43] hover:bg-[#edf3ee]" onClick={()=>openEditRecipe(activeRecipe)}><Pencil/>Edit</Button><Button variant="outline" className="rounded-lg border-[#d7a39a] bg-white text-[#a33f32] hover:bg-[#fbe9e2] hover:text-[#8c3025]" onClick={()=>setRecipeToDelete(activeRecipe)}><Trash2/>Delete</Button></div>
         </div>
         <div className="overflow-hidden rounded-[1.75rem] border border-[#dedbd2] bg-white">
           {(activeRecipe.image || (activeRecipe.id==="roasted-veg-bowl"?"/veg-bowl.jpg": activeRecipe.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": activeRecipe.id==="beef-stew"?"/beef-stew.jpg":"")) ? <img src={activeRecipe.image || (activeRecipe.id==="roasted-veg-bowl"?"/veg-bowl.jpg": activeRecipe.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": activeRecipe.id==="beef-stew"?"/beef-stew.jpg":"")} alt={activeRecipe.title} className="h-64 w-full object-cover sm:h-80 lg:h-[28rem]"/> : <div className="grid h-56 place-items-center bg-[#e8f0e8] text-8xl">{activeRecipe.emoji}</div>}
@@ -373,7 +389,7 @@ export default function Home() {
         </div>
       </article> : <>
       {view!=="recipes"&&<header className="relative mb-6 overflow-hidden rounded-[1.75rem]">
-        <img src="/family-taco-night.png?v=2" alt="Fresh ingredients prepared for family taco night" className="absolute inset-0 h-full w-full object-cover object-center"/>
+        <div className="absolute inset-0" aria-hidden="true">{headerImages.map((src,i)=><img key={src+i} src={src} alt="" className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000 ease-in-out ${i===headerImageIndex?"opacity-100":"opacity-0"}`}/>)}</div>
         <div className="absolute inset-0 bg-gradient-to-r from-[#172c20]/70 via-[#172c20]/55 to-[#172c20]/35" aria-hidden="true"/>
         <div className="relative flex flex-col gap-4 px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
           <div>
@@ -391,7 +407,6 @@ export default function Home() {
               <Button variant="ghost" className="-ml-2 shrink-0 rounded-lg text-[#315d43] hover:bg-[#e8f0e8]" onClick={()=>setView(preRecipesView)}><ArrowLeft size={18}/>Back</Button>
               <div className="flex items-center gap-2">
                 <Button onClick={()=>setOpen(true)} variant="outline" aria-label="Add a recipe" className="h-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white px-4 text-sm font-semibold text-[#45644e] shadow-none transition-colors hover:bg-[#315d43] hover:text-white sm:h-9"><Plus size={18}/>Add recipe</Button>
-                <Button type="button" variant="outline" aria-label="Share Recipes link" onClick={()=>shareLink({view:"recipes"},"recipe")} className="size-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white p-0 text-[#45644e] shadow-none sm:size-9">{shareCopied==="recipe"?<Check size={18}/>:<Share2 size={18}/>}</Button>
                 {searchOpen
                   ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
                       <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#526158]" size={17}/>
@@ -407,7 +422,6 @@ export default function Home() {
               <TabsList className="!h-auto flex flex-1 items-center gap-1 overflow-hidden rounded-lg border border-[#dedbd2] bg-white p-1 shadow-sm sm:flex-none sm:gap-2 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:p-0 sm:shadow-none">
                 {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border-0 bg-transparent px-2 text-xs font-semibold text-[#68716a] shadow-none transition hover:bg-[#f2f5f1] hover:text-[#315d43] data-[state=active]:bg-[#315d43] data-[state=active]:text-white data-[state=active]:shadow-none sm:h-9 sm:flex-none sm:gap-2 sm:rounded-none sm:border-b-2 sm:border-transparent sm:px-5 sm:text-sm sm:data-[state=active]:border-[#315d43] sm:data-[state=active]:bg-transparent sm:data-[state=active]:text-[#244832] sm:data-[state=active]:shadow-none"><Icon size={16} className="shrink-0"/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${view==="plan"?"bg-white/25 text-white":"bg-[#315d43] text-white"} sm:bg-[#315d43] sm:text-white`}>{selected.length}</b>}</TabsTrigger>)}
               </TabsList>
-              {view==="shop"&&<Button type="button" variant="outline" aria-label="Share shopping list link" onClick={()=>shareLink({view:"shop",week:String(weekOffset)},"shop")} className="size-11 shrink-0 rounded-lg border-[#d9d5cc] bg-white p-0 text-[#45644e] shadow-none sm:size-9">{shareCopied==="shop"?<Check size={18}/>:<Share2 size={18}/>}</Button>}
             </div>}
 
 
