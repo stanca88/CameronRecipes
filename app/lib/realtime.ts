@@ -68,3 +68,26 @@ export async function toggleShoppingItem(id: string, checked: boolean) {
   });
   return await response.json();
 }
+
+export function subscribeToHistory(onUpdate: (weeks: any[]) => void) {
+  const interval = setInterval(() => {
+    fetchHistory().then(onUpdate);
+  }, 5000);
+
+  return () => clearInterval(interval);
+}
+
+export async function fetchHistory() {
+  const response = await fetch("/api/history");
+  const data = await response.json();
+  return Array.isArray(data.weeks) ? data.weeks : [];
+}
+
+export async function saveHistoryWeek(week: { id: string; label: string; savedAt: string; meals: any[] }) {
+  const response = await fetch("/api/history", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id: week.id, label: week.label, saved_at: week.savedAt, meals: week.meals }),
+  });
+  return await response.json();
+}
