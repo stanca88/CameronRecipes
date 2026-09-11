@@ -254,8 +254,8 @@ export default function Home() {
       </header>
 
       <Tabs value={view} onValueChange={setView}>
-        <div className="sticky top-0 z-30 -mx-4 mb-4 bg-[#faf9f5] pb-1.5 sm:static sm:mx-0 sm:mb-0 sm:bg-transparent sm:pb-0">
-          <div className="flex items-center gap-2 border border-x-0 border-t-0 border-[#dedbd2] bg-white shadow-sm sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:p-0 sm:shadow-none">
+        <div className="sticky top-0 z-30 mb-4 bg-[#faf9f5] pb-1.5 sm:static sm:mb-0 sm:bg-transparent sm:pb-0">
+          <div className="flex items-center gap-2 overflow-hidden rounded-2xl border border-[#dedbd2] bg-white shadow-sm sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:shadow-none">
             <TabsList className="!h-auto grid flex-1 grid-cols-4 gap-1 rounded-none bg-transparent p-0 shadow-none sm:flex sm:flex-none sm:items-center sm:justify-start sm:rounded-none">
               {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border-0 bg-transparent px-1 py-2 text-[11px] font-semibold text-[#68716a] shadow-none transition hover:bg-[#f2f5f1] hover:text-[#315d43] data-[state=active]:bg-[#315d43] data-[state=active]:text-white data-[state=active]:shadow-none sm:min-h-11 sm:flex-none sm:flex-row sm:gap-2 sm:rounded-none sm:border-b-2 sm:border-transparent sm:bg-transparent sm:px-5 sm:py-3 sm:text-sm sm:data-[state=active]:border-[#315d43] sm:data-[state=active]:bg-transparent sm:data-[state=active]:text-[#244832] sm:data-[state=active]:shadow-none"><Icon size={20} className="shrink-0"/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none sm:px-2 sm:text-xs ${view==="plan"?"bg-white/25 text-white":"bg-[#315d43] text-white"} sm:bg-[#315d43] sm:text-white`}>{selected.length}</b>}</TabsTrigger>)}
             </TabsList>
