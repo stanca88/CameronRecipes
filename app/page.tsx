@@ -472,7 +472,7 @@ export default function Home() {
                             {items.map(i=>{const key=`${i.name.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`;const done=syncedChecked.includes(key);return (
                               <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-2 rounded-xl px-2 py-2.5 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
                                 <Checkbox className="mt-0.5 size-5 shrink-0 sm:size-4" checked={done} onCheckedChange={()=>toggleShoppingItemSync(key,!done)}/>
-                                <strong className="shrink-0 whitespace-nowrap text-sm leading-5 text-[#45644e]">{Math.round(i.amount*100)/100} {i.unit}</strong>
+                                <strong className={`shrink-0 whitespace-nowrap text-sm leading-5 ${done?"text-[#9a9f9b]":"text-[#45644e]"}`}>{Math.round(i.amount*100)/100} {i.unit}</strong>
                                 <span className="min-w-0 flex-1 break-words leading-5">{i.name}</span>
                               </label>
                             )})}
