@@ -171,6 +171,7 @@ export default function Home() {
   const [syncing,setSyncing]=useState(false);
   const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
   const [planSynced,setPlanSynced]=useState<Record<string,boolean>>({});
+  const [recipesLoaded,setRecipesLoaded]=useState(false);
   const unsubscribeRef=useRef<(() => void)|null>(null);
   const planUnsubscribeRef=useRef<(() => void)|null>(null);
   const historyUnsubscribeRef=useRef<(() => void)|null>(null);
@@ -234,7 +235,7 @@ export default function Home() {
     const newUrl=window.location.pathname+(search?`?${search}`:"");
     if(newUrl!==window.location.pathname+window.location.search)window.history.replaceState({},"",newUrl);
   },[loaded,sharedLinkApplied,view,activeRecipe,weekOffset]);
-  const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)){const normalized=shared.map((r:any)=>({...r,sourceUrl:r.sourceUrl||r.source_url||undefined,sourceName:r.sourceName||r.source_name||undefined,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>normalizeIngredient(i)).filter((i:Ingredient|null):i is Ingredient=>i!==null):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string=>typeof d==="string"):[]}));setRecipes(normalized);setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>[key,{...plan,selected:plan.selected.filter(id=>normalized.some(recipe=>recipe.id===id)),servings:Object.fromEntries(Object.entries(plan.servings).filter(([id])=>normalized.some(recipe=>recipe.id===id))),checked:plan.checked.filter(id=>normalized.some(recipe=>recipe.id===id)),chefs:Object.fromEntries(Object.entries(plan.chefs||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id))),days:Object.fromEntries(Object.entries(plan.days||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id)))}])));return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
+  const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)){const normalized=shared.map((r:any)=>({...r,sourceUrl:r.sourceUrl||r.source_url||undefined,sourceName:r.sourceName||r.source_name||undefined,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>normalizeIngredient(i)).filter((i:Ingredient|null):i is Ingredient=>i!==null):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string=>typeof d==="string"):[]}));setRecipes(normalized);setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>[key,{...plan,selected:plan.selected.filter(id=>normalized.some(recipe=>recipe.id===id)),servings:Object.fromEntries(Object.entries(plan.servings).filter(([id])=>normalized.some(recipe=>recipe.id===id))),checked:plan.checked.filter(id=>normalized.some(recipe=>recipe.id===id)),chefs:Object.fromEntries(Object.entries(plan.chefs||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id))),days:Object.fromEntries(Object.entries(plan.days||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id)))}])));setRecipesLoaded(true);return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
   const syncNow=async()=>{setSyncing(true);try{const hasShared=await loadSharedRecipes();if(hasShared){const response=await fetch(`/api/shopping?week_key=${encodeURIComponent(activeWeekKey)}`);if(response.ok){const {items}=await response.json();if(Array.isArray(items))setShoppingItems(items)}}return hasShared}finally{setSyncing(false)}};
   useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
   const mergeRemoteHistory=(remoteWeeks:any[])=>{
@@ -295,13 +296,13 @@ export default function Home() {
   },[activeWeekKey,loaded]);
   const planSignature=JSON.stringify(activePlan);
   useEffect(()=>{
-    if(!loaded||!planSynced[activeWeekKey])return;
+    if(!loaded||!planSynced[activeWeekKey]||!recipesLoaded)return;
     (async()=>{
       try{
         await saveWeeklyPlan(activeWeekKey,{selected_recipes:selected,servings,chefs,days});
       }catch(e){console.error("Failed to save weekly plan:",e)}
     })();
-  },[planSignature,activeWeekKey,loaded,planSynced]);
+  },[planSignature,activeWeekKey,loaded,planSynced,recipesLoaded]);
   const applyRemotePlan=(weekKeyToUpdate:string,remote:any)=>{
     setPlanSynced(prev=>prev[weekKeyToUpdate]?prev:{...prev,[weekKeyToUpdate]:true});
     if(!remote)return;
