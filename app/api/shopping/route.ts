@@ -37,21 +37,31 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid request" }, { status: 400 });
     }
 
+    // Preserve checked state for items that already exist for this week
+    const { data: existing } = await supabase
+      .from("shopping_list")
+      .select("ingredient_key, checked")
+      .eq("week_key", week_key);
+    const checkedByKey = new Map((existing || []).map((row: any) => [row.ingredient_key, row.checked]));
+
     // Delete old items for this week
     await supabase.from("shopping_list").delete().eq("week_key", week_key);
 
-    // Insert new items
+    // Insert new items, keeping checked state where the item already existed
     const { data, error } = await supabase
       .from("shopping_list")
-      .insert(items.map((item:any) => ({
-        week_key,
-        ingredient_key: item.ingredient_key || `${item.ingredient_name}|${item.ingredient_unit}|${item.ingredient_category}`,
-        ingredient_name: item.ingredient_name,
-        ingredient_amount: item.ingredient_amount,
-        ingredient_unit: item.ingredient_unit,
-        ingredient_category: item.ingredient_category,
-        checked: false,
-      })))
+      .insert(items.map((item:any) => {
+        const ingredient_key = item.ingredient_key || `${item.ingredient_name}|${item.ingredient_unit}|${item.ingredient_category}`;
+        return {
+          week_key,
+          ingredient_key,
+          ingredient_name: item.ingredient_name,
+          ingredient_amount: item.ingredient_amount,
+          ingredient_unit: item.ingredient_unit,
+          ingredient_category: item.ingredient_category,
+          checked: checkedByKey.get(ingredient_key) || false,
+        };
+      }))
       .select();
 
     if (error) throw error;
