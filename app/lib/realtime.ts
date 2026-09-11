@@ -45,6 +45,21 @@ export async function saveShoppingList(weekKey: string, items: any[]) {
   return saved || [];
 }
 
+export async function fetchWeeklyPlan(weekKey: string) {
+  const response = await fetch(`/api/plans/${encodeURIComponent(weekKey)}`);
+  const plan = await response.json();
+  return plan && !plan.error ? plan : null;
+}
+
+export async function saveWeeklyPlan(weekKey: string, plan: { selected_recipes: string[]; servings: Record<string, number>; chefs: Record<string, string>; days: Record<string, string> }) {
+  const response = await fetch(`/api/plans/${encodeURIComponent(weekKey)}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(plan),
+  });
+  return await response.json();
+}
+
 export async function toggleShoppingItem(id: string, checked: boolean) {
   const response = await fetch(`/api/shopping/${id}`, {
     method: "PATCH",
