@@ -514,7 +514,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </article> : <>
+      </article> : <><Tabs value={view} onValueChange={changeView}>
       {view!=="recipes"&&<header className="relative mb-3 overflow-hidden rounded-[1.75rem]">
         <div className="absolute inset-0" aria-hidden="true">{headerImages.map((src,i)=><img key={src+i} src={src} alt="" className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000 ease-in-out ${i===headerImageIndex?"opacity-100":"opacity-0"}`}/>)}</div>
         <div className="absolute inset-0 bg-gradient-to-r from-[#172c20]/70 via-[#172c20]/55 to-[#172c20]/35" aria-hidden="true"/>
@@ -526,9 +526,13 @@ export default function Home() {
           </div>
           <Button type="button" onClick={()=>goAway("recipes")} className="flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-lg border border-white/40 bg-white/15 px-4 text-sm font-semibold text-white shadow-none backdrop-blur-sm transition-colors hover:bg-white hover:text-[#244832] sm:h-auto sm:w-28 sm:flex-col sm:justify-center sm:gap-2 sm:self-stretch sm:rounded-2xl sm:py-4"><BookOpen size={18} className="sm:hidden"/><BookOpen size={28} className="hidden sm:block"/><span>Recipes</span></Button>
         </div>
+        <div className="relative flex items-center gap-2 border-t border-white/15 bg-black/10 px-5 py-3 backdrop-blur-sm sm:px-8">
+          <Select value={view==="history"?"history":String(weekOffset)} onValueChange={value=>{if(value==="history"){goAway("history")}else{setWeekOffset(Number(value) as 0|1);if(view==="history")setView(preRecipesView)}}}><SelectTrigger aria-label="Choose planning week" className="data-[size=default]:h-12 min-w-0 shrink rounded-lg border-white/40 bg-white/15 px-3 text-sm font-semibold text-white shadow-none backdrop-blur-sm sm:shrink-0 sm:data-[size=default]:h-9 sm:border-white/30 sm:bg-white/10">{view==="history"?<HistoryIcon size={16} className="shrink-0"/>:<CalendarDays size={16} className="shrink-0"/>}<SelectValue className="truncate">{view==="history"?"History":<><span className="sm:hidden">{weekLabelShort}</span><span className="hidden sm:inline">{weekLabel}</span></>}</SelectValue></SelectTrigger><SelectContent position="popper" sideOffset={4} align="start" className="bg-white">{[0,1].map(offset=><SelectItem key={offset} value={String(offset)}>{offset===0?"This week":"Next week"} · {weekRange(offset as 0|1)}</SelectItem>)}<SelectItem value="history">History</SelectItem></SelectContent></Select>
+          <TabsList className="flex h-12 flex-1 items-stretch gap-1 overflow-hidden rounded-lg border border-white/40 bg-white/15 p-0 shadow-none backdrop-blur-sm sm:!h-auto sm:flex-none sm:items-center sm:gap-2 sm:rounded-none sm:border-0 sm:border-b-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+            {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative flex h-full flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-none border-0 bg-transparent px-2 text-xs font-semibold text-white/80 shadow-none transition first:rounded-l-md last:rounded-r-md hover:bg-white/10 hover:text-white data-[state=active]:bg-white data-[state=active]:text-[#244832] data-[state=active]:shadow-none sm:h-9 sm:flex-none sm:gap-2 sm:rounded-none sm:border-b-2 sm:border-transparent sm:px-5 sm:text-sm sm:first:rounded-none sm:last:rounded-none sm:data-[state=active]:border-white sm:data-[state=active]:bg-transparent sm:data-[state=active]:text-white sm:data-[state=active]:shadow-none"><Icon size={16} className="shrink-0"/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${view==="plan"?"bg-[#315d43]/20 text-[#244832]":"bg-white/25 text-white"} sm:bg-white/25 sm:text-white`}>{selected.length}</b>}</TabsTrigger>)}
+          </TabsList>
+        </div>
       </header>}
-
-      <Tabs value={view} onValueChange={changeView}>
         {view==="recipes"
           ? <div className="mb-4 flex items-center justify-between gap-2 pb-2 pt-4 sm:pt-3">
               <Button variant="ghost" className="-ml-2 shrink-0 rounded-lg text-[#315d43] hover:bg-[#e8f0e8]" onClick={()=>setView(preRecipesView)}><ArrowLeft size={18}/>Back</Button>
@@ -544,12 +548,7 @@ export default function Home() {
                 }
               </div>
             </div>
-          : <div className="mb-4 flex items-center gap-2 pb-2 pt-4 sm:pt-3">
-              <Select value={view==="history"?"history":String(weekOffset)} onValueChange={value=>{if(value==="history"){goAway("history")}else{setWeekOffset(Number(value) as 0|1);if(view==="history")setView(preRecipesView)}}}><SelectTrigger aria-label="Choose planning week" className="data-[size=default]:h-9 min-w-0 shrink rounded-lg border-[#d9d5cc] bg-white px-3 text-sm font-semibold text-[#244832] shadow-none sm:shrink-0">{view==="history"?<HistoryIcon size={16} className="shrink-0"/>:<CalendarDays size={16} className="shrink-0"/>}<SelectValue className="truncate">{view==="history"?"History":<><span className="sm:hidden">{weekLabelShort}</span><span className="hidden sm:inline">{weekLabel}</span></>}</SelectValue></SelectTrigger><SelectContent position="popper" sideOffset={4} align="start" className="bg-white"><SelectItem value="0">This week · {weekRange(0)}</SelectItem><SelectItem value="1">Next week · {weekRange(1)}</SelectItem><SelectItem value="history">History</SelectItem></SelectContent></Select>
-              <TabsList className="flex h-11 flex-1 items-stretch gap-1 overflow-hidden rounded-lg border border-[#d9d5cc] bg-white p-0 shadow-none sm:!h-auto sm:flex-none sm:items-center sm:gap-2 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:p-0 sm:shadow-none">
-                {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative flex h-full flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-none border-0 bg-transparent px-2 text-xs font-semibold text-[#68716a] shadow-none transition first:rounded-l-md last:rounded-r-md hover:bg-[#f2f5f1] hover:text-[#315d43] data-[state=active]:bg-[#315d43] data-[state=active]:text-white data-[state=active]:shadow-none sm:h-9 sm:flex-none sm:gap-2 sm:rounded-none sm:border-b-2 sm:border-transparent sm:px-5 sm:text-sm sm:first:rounded-none sm:last:rounded-none sm:data-[state=active]:border-[#315d43] sm:data-[state=active]:bg-transparent sm:data-[state=active]:text-[#244832] sm:data-[state=active]:shadow-none"><Icon size={16} className="shrink-0"/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${view==="plan"?"bg-white/25 text-white":"bg-[#315d43] text-white"} sm:bg-[#315d43] sm:text-white`}>{selected.length}</b>}</TabsTrigger>)}
-              </TabsList>
-            </div>}
+          : null}
 
 
         <TabsContent value="recipes">
