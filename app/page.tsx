@@ -110,6 +110,59 @@ function recipeMatchesQuery(recipe:Recipe, query:string) {
   return false;
 }
 
+const UNIT_ABBREVIATIONS:Record<string,string>={
+  cup:"c",cups:"c",
+  tablespoon:"tbsp",tablespoons:"tbsp",tbsp:"tbsp",tbsps:"tbsp",
+  teaspoon:"tsp",teaspoons:"tsp",tsp:"tsp",tsps:"tsp",
+  ounce:"oz",ounces:"oz",oz:"oz",
+  pound:"lb",pounds:"lb",lbs:"lb",lb:"lb",
+  gram:"g",grams:"g",g:"g",
+  kilogram:"kg",kilograms:"kg",kg:"kg",
+  milliliter:"ml",milliliters:"ml",millilitre:"ml",millilitres:"ml",ml:"ml",
+  liter:"l",liters:"l",litre:"l",litres:"l",l:"l",
+  pinch:"pinch",pinches:"pinch",
+  clove:"clove",cloves:"clove",
+  can:"can",cans:"can",
+};
+
+function abbreviateUnit(unit:string):string {
+  const clean=unit.trim().toLowerCase().replace(/\.$/,"");
+  if(!clean)return "";
+  return UNIT_ABBREVIATIONS[clean]||unit.trim();
+}
+
+function splitLastWord(name:string):[string,string] {
+  const idx=name.lastIndexOf(" ");
+  if(idx===-1)return["",name];
+  return[name.slice(0,idx+1),name.slice(idx+1)];
+}
+
+function singularizeWord(word:string):string {
+  if(/^(ss|us|is|ies)$/i.test(word))return word;
+  if(/ies$/i.test(word)&&word.length>3)return word.slice(0,-3)+"y";
+  if(/(ches|shes|xes|zes|sses)$/i.test(word))return word.slice(0,-2);
+  if(/oes$/i.test(word))return word.slice(0,-2);
+  if(/s$/i.test(word)&&!/ss$/i.test(word))return word.slice(0,-1);
+  return word;
+}
+
+function pluralizeWord(word:string):string {
+  if(!word)return word;
+  if(/[^aeiou]y$/i.test(word))return word.slice(0,-1)+"ies";
+  if(/(ch|sh|x|z|s)$/i.test(word))return word+"es";
+  return word+"s";
+}
+
+function singularizeName(name:string):string {
+  const [prefix,last]=splitLastWord(name);
+  return prefix+singularizeWord(last);
+}
+
+function pluralizeName(name:string):string {
+  const [prefix,last]=splitLastWord(name);
+  return prefix+pluralizeWord(last);
+}
+
 function categoryFor(name:string) {
   const value=name.toLowerCase();
   if(/chicken|beef|turkey|pork|sausage|bacon|salmon|shrimp|fish/.test(value)) return "Meat & seafood";
@@ -138,7 +191,7 @@ function normalizeIngredient(raw:unknown):Ingredient|null {
   let name=typeof item.name==="string"?item.name.trim():"";
   if(!name)return null;
   let amount=Number.isFinite(Number(item.amount))?Number(item.amount):1;
-  let unit=typeof item.unit==="string"?item.unit:"";
+  let unit=abbreviateUnit(typeof item.unit==="string"?item.unit:"");
   if(unit.toLowerCase()==="l"&&/^arge\b/i.test(name)){name=`l${name}`;unit=""}
   const trailingFraction=name.match(/^(?:(\d+)\/|\/)(\d+)\s+(.+)$/);
   if(trailingFraction){amount+=Number(trailingFraction[1]||1)/Number(trailingFraction[2]);name=trailingFraction[3]}
@@ -152,7 +205,7 @@ function parseIngredientLine(line:string):Ingredient {
   if(!match)return{name:clean,amount:1,unit:"",category:categoryFor(clean)};
   const rawAmount=match[1]; const amount=rawAmount.split(/\s+/).reduce((total,part)=>{if(!part.includes("/"))return total+Number(part);const [top,bottom]=part.split("/").map(Number);return total+top/bottom},0);
   const name=(match[3]||clean).replace(/^of\s+/i,"").trim();
-  return{name,amount,unit:match[2]||"",category:categoryFor(name)};
+  return{name,amount,unit:abbreviateUnit(match[2]||""),category:categoryFor(name)};
 }
 
 export default function Home() {
@@ -314,9 +367,10 @@ export default function Home() {
     const items=new Map<string,Ingredient>();
     recipes.filter(r=>selected.includes(r.id)).forEach(r=>(Array.isArray(r.ingredients)?r.ingredients:[]).forEach(raw=>{
       const normalized=normalizeIngredient(raw); if(!normalized)return;
-      const i=/^cups?$/i.test(normalized.unit.trim())?{...normalized,amount:normalized.amount*8,unit:"oz"}:normalized;
-      const key=`${i.name.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
-      items.set(key,{...i,amount:(old?.amount||0)+(i.amount*people/(r.serves||4))});
+      const i=/^c$/i.test(normalized.unit.trim())?{...normalized,amount:normalized.amount*8,unit:"oz"}:normalized;
+      const canonicalName=singularizeName(i.name.trim());
+      const key=`${canonicalName.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
+      items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4))});
     })); return [...items.values()].sort((a,b)=>a.category.localeCompare(b.category));
   },[recipes,selected,servings]);
   const categories=[...new Set(grocery.map(i=>i.category))];
@@ -514,7 +568,7 @@ export default function Home() {
                               <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-2 rounded-xl px-2 py-2.5 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
                                 <Checkbox className="mt-0.5 size-5 shrink-0 sm:size-4" checked={done} onCheckedChange={()=>toggleShoppingItemSync(key,!done)}/>
                                 <strong className={`shrink-0 whitespace-nowrap text-sm leading-5 ${done?"text-[#9a9f9b]":"text-[#45644e]"}`}>{Math.round(i.amount*100)/100} {i.unit}</strong>
-                                <span className="min-w-0 flex-1 break-words leading-5">{i.name}</span>
+                                <span className="min-w-0 flex-1 break-words leading-5">{!i.unit&&Math.round(i.amount*100)/100!==1?pluralizeName(i.name):i.name}</span>
                               </label>
                             )})}
                           </div>
