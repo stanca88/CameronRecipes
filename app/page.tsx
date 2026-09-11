@@ -304,6 +304,7 @@ export default function Home() {
             <h2 className="mt-1 font-serif text-2xl font-medium leading-tight sm:text-3xl lg:text-4xl">Good food, happy family.</h2>
             <p className="mt-2 max-w-md text-sm leading-6 text-white/85 sm:text-base">Plan the week together, bring one tidy list to the store and keep the recipes everyone loves in one place.</p>
           </div>
+          <Button type="button" onClick={()=>goAway("recipes")} className="h-11 shrink-0 self-start rounded-lg border border-white/40 bg-white/15 px-4 text-sm font-semibold text-white shadow-none backdrop-blur-sm transition-colors hover:bg-white hover:text-[#244832] sm:h-9 sm:self-auto"><BookOpen size={18}/>Recipes</Button>
         </div>
       </header>}
 
@@ -323,12 +324,9 @@ export default function Home() {
                 }
               </div>
             </div>
-          : <div className="mb-4 flex items-center justify-between gap-2 pb-2 pt-4 sm:pt-3">
-              <div className="flex min-w-0 shrink items-center gap-2">
-                <Select value={String(weekOffset)} onValueChange={value=>setWeekOffset(Number(value) as 0|1)}><SelectTrigger aria-label="Choose planning week" className="h-11 min-w-0 shrink rounded-lg border-[#d9d5cc] bg-white px-3 text-sm font-semibold text-[#244832] shadow-none sm:h-9"><CalendarDays size={16} className="shrink-0"/><SelectValue className="truncate">{weekLabel}</SelectValue></SelectTrigger><SelectContent position="popper" sideOffset={4} align="start" className="bg-white"><SelectItem value="0">This week · {weekRange(0)}</SelectItem><SelectItem value="1">Next week · {weekRange(1)}</SelectItem></SelectContent></Select>
-                <Button type="button" variant="ghost" aria-pressed={view==="history"} aria-label={view==="history"?"Exit history":"View history"} onClick={()=>{if(view==="history"){setView(preRecipesView)}else{goAway("history")}}} className={`h-11 shrink-0 rounded-lg px-3 text-sm font-semibold shadow-none transition sm:h-9 ${view==="history"?"bg-[#315d43] text-white hover:bg-[#274d37]":"text-[#45644e] hover:bg-[#f2f5f1]"}`}><HistoryIcon size={18}/></Button>
-              </div>
-              <Button type="button" onClick={()=>goAway("recipes")} className="h-11 shrink-0 rounded-lg border border-[#d9d5cc] bg-white px-4 text-sm font-semibold text-[#244832] shadow-none transition hover:bg-[#f2f5f1] sm:h-9"><BookOpen size={18}/>Recipes</Button>
+          : <div className="mb-4 flex items-center gap-2 pb-2 pt-4 sm:pt-3">
+              <Select value={String(weekOffset)} onValueChange={value=>setWeekOffset(Number(value) as 0|1)}><SelectTrigger aria-label="Choose planning week" className="h-11 min-w-0 shrink rounded-lg border-[#d9d5cc] bg-white px-3 text-sm font-semibold text-[#244832] shadow-none sm:h-9"><CalendarDays size={16} className="shrink-0"/><SelectValue className="truncate">{weekLabel}</SelectValue></SelectTrigger><SelectContent position="popper" sideOffset={4} align="start" className="bg-white"><SelectItem value="0">This week · {weekRange(0)}</SelectItem><SelectItem value="1">Next week · {weekRange(1)}</SelectItem></SelectContent></Select>
+              <Button type="button" variant="ghost" aria-pressed={view==="history"} aria-label={view==="history"?"Exit history":"View history"} onClick={()=>{if(view==="history"){setView(preRecipesView)}else{goAway("history")}}} className={`h-11 shrink-0 rounded-lg px-3 text-sm font-semibold shadow-none transition sm:h-9 ${view==="history"?"bg-[#315d43] text-white hover:bg-[#274d37]":"text-[#45644e] hover:bg-[#f2f5f1]"}`}><HistoryIcon size={18}/></Button>
             </div>}
 
         {(view==="plan"||view==="shop")&&<div className="sticky top-0 z-30 mb-4 bg-[#faf9f5] pb-1.5 sm:static sm:mb-0 sm:bg-transparent sm:pb-0">
