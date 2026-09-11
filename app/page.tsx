@@ -50,6 +50,16 @@ function weekRange(offset = 0) {
   return `${left} – ${right}`;
 }
 
+function weekRangeShort(offset = 0) {
+  const start = weekStart(offset);
+  const end = new Date(start); end.setDate(start.getDate() + 6);
+  const left = start.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+  const right = start.getMonth()===end.getMonth()
+    ? String(end.getDate())
+    : end.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+  return `${left}–${right}`;
+}
+
 function weekRangeFromKey(key:string) {
   const [year,month,day]=key.split("-").map(Number);
   const start=new Date(year,month-1,day);
@@ -210,6 +220,7 @@ export default function Home() {
   const commitDay=(id:string)=>setCommittedDays(prev=>({...prev,[id]:days[id]||""}));
   const orderedSelectedRecipes=useMemo(()=>recipes.filter(r=>selected.includes(r.id)).sort((a,b)=>dayOrderIndex(committedDays[a.id])-dayOrderIndex(committedDays[b.id])),[recipes,selected,committedDays]);
   const weekLabel=weekRange(weekOffset);
+  const weekLabelShort=weekRangeShort(weekOffset);
   const headerImages=useMemo(()=>{
     const imgs=Array.from(new Set(recipes.map(r=>r.image).filter((img):img is string=>Boolean(img))));
     return imgs.length?imgs:["/family-taco-night.png?v=2"];
@@ -445,7 +456,7 @@ export default function Home() {
               </div>
             </div>
           : <div className="mb-4 flex items-center gap-2 pb-2 pt-4 sm:pt-3">
-              <Select value={view==="history"?"history":String(weekOffset)} onValueChange={value=>{if(value==="history"){goAway("history")}else{setWeekOffset(Number(value) as 0|1);if(view==="history")setView(preRecipesView)}}}><SelectTrigger aria-label="Choose planning week" className="h-11 min-w-0 shrink-0 rounded-lg border-[#d9d5cc] bg-white px-3 text-sm font-semibold text-[#244832] shadow-none sm:h-9">{view==="history"?<HistoryIcon size={16} className="shrink-0"/>:<CalendarDays size={16} className="shrink-0"/>}<SelectValue className="truncate">{view==="history"?"History":weekLabel}</SelectValue></SelectTrigger><SelectContent position="popper" sideOffset={4} align="start" className="bg-white"><SelectItem value="0">This week · {weekRange(0)}</SelectItem><SelectItem value="1">Next week · {weekRange(1)}</SelectItem><SelectItem value="history">History</SelectItem></SelectContent></Select>
+              <Select value={view==="history"?"history":String(weekOffset)} onValueChange={value=>{if(value==="history"){goAway("history")}else{setWeekOffset(Number(value) as 0|1);if(view==="history")setView(preRecipesView)}}}><SelectTrigger aria-label="Choose planning week" className="h-11 min-w-0 shrink rounded-lg border-[#d9d5cc] bg-white px-3 text-sm font-semibold text-[#244832] shadow-none sm:h-9 sm:shrink-0">{view==="history"?<HistoryIcon size={16} className="shrink-0"/>:<CalendarDays size={16} className="shrink-0"/>}<SelectValue className="truncate">{view==="history"?"History":<><span className="sm:hidden">{weekLabelShort}</span><span className="hidden sm:inline">{weekLabel}</span></>}</SelectValue></SelectTrigger><SelectContent position="popper" sideOffset={4} align="start" className="bg-white"><SelectItem value="0">This week · {weekRange(0)}</SelectItem><SelectItem value="1">Next week · {weekRange(1)}</SelectItem><SelectItem value="history">History</SelectItem></SelectContent></Select>
               <TabsList className="!h-auto flex flex-1 items-center gap-1 overflow-hidden rounded-lg border border-[#dedbd2] bg-white p-1 shadow-sm sm:flex-none sm:gap-2 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:p-0 sm:shadow-none">
                 {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative flex h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border-0 bg-transparent px-2 text-xs font-semibold text-[#68716a] shadow-none transition hover:bg-[#f2f5f1] hover:text-[#315d43] data-[state=active]:bg-[#315d43] data-[state=active]:text-white data-[state=active]:shadow-none sm:h-9 sm:flex-none sm:gap-2 sm:rounded-none sm:border-b-2 sm:border-transparent sm:px-5 sm:text-sm sm:data-[state=active]:border-[#315d43] sm:data-[state=active]:bg-transparent sm:data-[state=active]:text-[#244832] sm:data-[state=active]:shadow-none"><Icon size={16} className="shrink-0"/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${view==="plan"?"bg-white/25 text-white":"bg-[#315d43] text-white"} sm:bg-[#315d43] sm:text-white`}>{selected.length}</b>}</TabsTrigger>)}
               </TabsList>
