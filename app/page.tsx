@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { subscribeToShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan, subscribeToHistory, fetchHistory, saveHistoryWeek } from "@/app/lib/realtime";
 
-type Ingredient = { name: string; amount: number; unit: string; category: string };
+type Ingredient = { name: string; amount: number; unit: string; category: string; hasQty?: boolean };
 type Recipe = { id: string; title: string; emoji: string; time: string; serves: number; author: string; ingredients: Ingredient[]; image?: string; directions?: string[]; sourceUrl?: string; sourceName?: string };
 type WeeklyPlan = { selected: string[]; servings: Record<string,number>; checked: string[]; chefs: Record<string,string>; days: Record<string,string> };
 type SavedWeek = { id: string; label: string; savedAt: string; meals: { id: string; title: string; emoji: string; people: number; chef?: string; day?: string }[] };
@@ -123,6 +123,13 @@ const UNIT_ABBREVIATIONS:Record<string,string>={
   pinch:"pinch",pinches:"pinch",
   clove:"clove",cloves:"clove",
   can:"can",cans:"can",
+  slice:"slice",slices:"slice",
+  head:"head",heads:"head",
+  stalk:"stalk",stalks:"stalk",
+  sprig:"sprig",sprigs:"sprig",
+  package:"pkg",packages:"pkg",pkg:"pkg",pkgs:"pkg",
+  bunch:"bunch",bunches:"bunch",
+  large:"large",medium:"medium",small:"small",whole:"whole",
 };
 
 function abbreviateUnit(unit:string):string {
@@ -163,6 +170,13 @@ function pluralizeName(name:string):string {
   return prefix+pluralizeWord(last);
 }
 
+const PLURALIZABLE_COUNT_UNITS=new Set(["clove","slice","head","stalk","sprig","pkg","bunch","pinch","can"]);
+
+function displayUnit(unit:string,amount:number):string {
+  if(!PLURALIZABLE_COUNT_UNITS.has(unit))return unit;
+  return Math.round(amount*100)/100===1?unit:pluralizeWord(unit);
+}
+
 const PREP_TRAILING_WORD_PATTERN=/^(minced|chopped|diced|sliced|slivered|julienned|shredded|grated|melted|softened|beaten|whisked|peeled|seeded|cored|pitted|trimmed|halved|quartered|crushed|mashed|drained|rinsed|room temperature|cold|divided|optional|to taste|for garnish|for serving)\b/i;
 
 function cleanIngredientName(rawName:string):string {
@@ -197,6 +211,8 @@ function ingredientLineFor(item:Ingredient) {
   return parts.join(" ");
 }
 
+const DESCRIPTOR_UNIT_PATTERN=/^(cloves?|pinch(?:es)?|cans?|slices?|heads?|stalks?|sprigs?|packages?|pkgs?|bunch(?:es)?|large|medium|small|whole)\s+(.+)$/i;
+
 function normalizeIngredient(raw:unknown):Ingredient|null {
   if(typeof raw==="string"){
     const trimmed=raw.trim();
@@ -209,13 +225,15 @@ function normalizeIngredient(raw:unknown):Ingredient|null {
   const item=raw as Partial<Ingredient>;
   let name=typeof item.name==="string"?item.name.trim():"";
   if(!name)return null;
-  let amount=Number.isFinite(Number(item.amount))?Number(item.amount):1;
+  const hasQty=Number.isFinite(Number(item.amount));
+  let amount=hasQty?Number(item.amount):1;
   let unit=abbreviateUnit(typeof item.unit==="string"?item.unit:"");
   if(unit.toLowerCase()==="l"&&/^arge\b/i.test(name)){name=`l${name}`;unit=""}
   const trailingFraction=name.match(/^(?:(\d+)\/|\/)(\d+)\s+(.+)$/);
   if(trailingFraction){amount+=Number(trailingFraction[1]||1)/Number(trailingFraction[2]);name=trailingFraction[3]}
   name=cleanIngredientName(name);
-  return {name,amount,unit,category:typeof item.category==="string"&&item.category?item.category:categoryFor(name)};
+  if(!unit&&hasQty){const descriptorMatch=name.match(DESCRIPTOR_UNIT_PATTERN);if(descriptorMatch){unit=abbreviateUnit(descriptorMatch[1]);name=descriptorMatch[2]}}
+  return {name,amount,unit,category:typeof item.category==="string"&&item.category?item.category:categoryFor(name),hasQty};
 }
 
 function parseIngredientLine(line:string):Ingredient {
@@ -223,11 +241,11 @@ function parseIngredientLine(line:string):Ingredient {
   const normalized=clean
     .replace(/(\d)½/g,"$1 1/2").replace(/(\d)¼/g,"$1 1/4").replace(/(\d)¾/g,"$1 3/4").replace(/(\d)⅓/g,"$1 1/3").replace(/(\d)⅔/g,"$1 2/3")
     .replace(/^½/,"1/2 ").replace(/^¼/,"1/4 ").replace(/^¾/,"3/4 ").replace(/^⅓/,"1/3 ").replace(/^⅔/,"2/3 ");
-  const match=normalized.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s+(?:(cups?|tablespoons?|tbsp|teaspoons?|tsp|ounces?|oz|pounds?|lbs?|lb|grams?|g|kg|ml|liters?|l)\b\s*)?(.*)$/i);
-  if(!match)return{name:clean,amount:1,unit:"",category:categoryFor(clean)};
+  const match=normalized.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s+(?:(cups?|tablespoons?|tbsp|teaspoons?|tsp|ounces?|oz|pounds?|lbs?|lb|grams?|g|kg|ml|liters?|l|cloves?|pinch(?:es)?|cans?|slices?|heads?|stalks?|sprigs?|packages?|pkgs?|bunch(?:es)?|large|medium|small|whole)\b\s*)?(.*)$/i);
+  if(!match)return{name:clean,amount:1,unit:"",category:categoryFor(clean),hasQty:false};
   const rawAmount=match[1]; const amount=rawAmount.split(/\s+/).reduce((total,part)=>{if(!part.includes("/"))return total+Number(part);const [top,bottom]=part.split("/").map(Number);return total+top/bottom},0);
   const name=cleanIngredientName((match[3]||clean).replace(/^of\s+/i,"").trim());
-  return{name,amount,unit:abbreviateUnit(match[2]||""),category:categoryFor(name)};
+  return{name,amount,unit:abbreviateUnit(match[2]||""),category:categoryFor(name),hasQty:true};
 }
 
 export default function Home() {
@@ -393,7 +411,7 @@ export default function Home() {
       const i=/^c$/i.test(normalized.unit.trim())?{...normalized,amount:normalized.amount*8,unit:"oz"}:normalized;
       const canonicalName=singularizeName(i.name.trim());
       const key=`${canonicalName.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
-      items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4))});
+      items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4)),hasQty:(old?.hasQty??false)||(i.hasQty??false)});
     })); return [...items.values()].sort((a,b)=>a.category.localeCompare(b.category));
   },[recipes,selected,servings]);
   const categories=[...new Set(grocery.map(i=>i.category))];
@@ -510,7 +528,7 @@ export default function Home() {
             </div>
 
             <div className="mt-10 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-14">
-              <section className="min-w-0"><button onClick={()=>setIngredientsCollapsed(v=>!v)} aria-expanded={!ingredientsCollapsed} aria-controls="ingredients-list" className="flex w-full items-center justify-between gap-3 text-left"><h3 className="font-serif text-2xl font-bold">Ingredients</h3><span aria-label={ingredientsCollapsed?"Expand ingredients":"Collapse ingredients"} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#d8d5cd] bg-white text-[#257F4B] hover:bg-[#f1f4ef]">{ingredientsCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!ingredientsCollapsed&&<div id="ingredients-list" className="mt-4 divide-y divide-[#e8e0d1]">{(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,index)=>{const item=normalizeIngredient(raw);if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);return <div key={index} className="grid min-w-0 grid-cols-[max-content_minmax(0,1fr)] items-start gap-x-4 py-3"><strong className="whitespace-nowrap text-[#257F4B]">{Math.round(amount*100)/100} {item.unit}</strong><span className="min-w-0 leading-6">{item.name}</span></div>})}</div>}</section>
+              <section className="min-w-0"><button onClick={()=>setIngredientsCollapsed(v=>!v)} aria-expanded={!ingredientsCollapsed} aria-controls="ingredients-list" className="flex w-full items-center justify-between gap-3 text-left"><h3 className="font-serif text-2xl font-bold">Ingredients</h3><span aria-label={ingredientsCollapsed?"Expand ingredients":"Collapse ingredients"} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#d8d5cd] bg-white text-[#257F4B] hover:bg-[#f1f4ef]">{ingredientsCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!ingredientsCollapsed&&<div id="ingredients-list" className="mt-4 divide-y divide-[#e8e0d1]">{(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,index)=>{const item=normalizeIngredient(raw);if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);return <div key={index} className="flex min-w-0 items-start gap-4 py-3"><strong className="w-16 shrink-0 whitespace-nowrap text-[#257F4B] sm:w-20">{item.hasQty!==false&&<>{Math.round(amount*100)/100} {displayUnit(item.unit,amount)}</>}</strong><span className="min-w-0 flex-1 leading-6">{item.name}</span></div>})}</div>}</section>
               <section className="min-w-0"><h3 className="font-serif text-2xl font-bold">Directions</h3>{activeRecipe.directions?.length?<>
                 <p className="mt-2 text-sm text-[#6d786f]">Tap a step when you finish it to check it off while you cook.</p>
                 <ol className="mt-5 space-y-4">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);return <li key={index}><button onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 items-start gap-4 rounded-2xl border border-transparent p-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35 ${done?"hover:bg-[#f5f8f4]":"hover:border-[#dbe4dc] hover:bg-[#f5f8f4]"}`}><span className={`grid size-9 shrink-0 place-items-center rounded-full font-semibold text-white ${done?"bg-[#c7d3c8]":"bg-[#257F4B]"}`}>{done?<Check size={16}/>:index+1}</span><p className={`min-w-0 flex-1 pt-1 leading-7 ${done?"text-[#8a9187] line-through":""}`}>{step}</p></button></li>})}</ol>
@@ -595,8 +613,8 @@ export default function Home() {
                             {items.map(i=>{const key=`${i.name.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`;const done=syncedChecked.includes(key);return (
                               <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-2 rounded-xl px-2 py-2.5 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
                                 <Checkbox className="mt-0.5 size-5 shrink-0 sm:size-4" checked={done} onCheckedChange={()=>toggleShoppingItemSync(key,!done)}/>
-                                <strong className={`shrink-0 whitespace-nowrap text-sm leading-5 ${done?"text-[#9a9f9b]":"text-[#45644e]"}`}>{Math.round(i.amount*100)/100} {i.unit}</strong>
-                                <span className="min-w-0 flex-1 break-words leading-5">{!i.unit&&Math.round(i.amount*100)/100!==1?pluralizeName(i.name):i.name}</span>
+                                <strong className={`w-16 shrink-0 whitespace-nowrap text-sm leading-5 sm:w-20 ${done?"text-[#9a9f9b]":"text-[#45644e]"}`}>{i.hasQty!==false&&<>{Math.round(i.amount*100)/100} {displayUnit(i.unit,i.amount)}</>}</strong>
+                                <span className="min-w-0 flex-1 break-words leading-5">{i.hasQty!==false&&!i.unit&&Math.round(i.amount*100)/100!==1?pluralizeName(i.name):i.name}</span>
                               </label>
                             )})}
                           </div>
