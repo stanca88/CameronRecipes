@@ -170,11 +170,47 @@ function pluralizeName(name:string):string {
   return prefix+pluralizeWord(last);
 }
 
-const PLURALIZABLE_COUNT_UNITS=new Set(["clove","slice","head","stalk","sprig","pkg","bunch","pinch","can"]);
+const PLURALIZABLE_COUNT_UNITS=new Set(["clove","slice","head","stalk","sprig","pkg","bunch","pinch","can","cup","tablespoon","teaspoon","ounce","pound","gram","kilogram","milliliter","liter"]);
+
+function formatAmountFraction(amount:number):string {
+  const rounded=Math.round(amount*100)/100;
+  const whole=Math.floor(rounded);
+  const frac=Math.round((rounded-whole)*100)/100;
+  let fracStr="";
+  if(Math.abs(frac-0.5)<0.03) fracStr="½";
+  else if(Math.abs(frac-0.25)<0.03) fracStr="¼";
+  else if(Math.abs(frac-0.75)<0.03) fracStr="¾";
+  else if(Math.abs(frac-0.33)<0.03) fracStr="⅓";
+  else if(Math.abs(frac-0.67)<0.03) fracStr="⅔";
+  else if(Math.abs(frac-0.125)<0.02) fracStr="⅛";
+  
+  if(fracStr){
+    return whole>0?`${whole} ${fracStr}`:fracStr;
+  }
+  return String(rounded);
+}
 
 function displayUnit(unit:string,amount:number):string {
+  if(!unit)return "";
+  const isSingular = Math.round(amount*100)/100 <= 1;
+  if(unit==="cup"||unit==="c") return isSingular?"cup":"cups";
+  if(unit==="tablespoon"||unit==="tbsp") return isSingular?"tablespoon":"tablespoons";
+  if(unit==="teaspoon"||unit==="tsp") return isSingular?"teaspoon":"teaspoons";
   if(!PLURALIZABLE_COUNT_UNITS.has(unit))return unit;
-  return Math.round(amount*100)/100===1?unit:pluralizeWord(unit);
+  return isSingular?unit:pluralizeWord(unit);
+}
+
+function formatIngredientPhrase(item:Ingredient, scaledAmount?:number):string {
+  const amt = scaledAmount !== undefined ? scaledAmount : item.amount;
+  if(item.hasQty===false){
+    return item.name;
+  }
+  const amtStr = formatAmountFraction(amt);
+  const u = displayUnit(item.unit, amt);
+  if(u){
+    return `${amtStr} ${u} ${item.name}`;
+  }
+  return `${amtStr} ${item.name}`;
 }
 
 const PREP_TRAILING_WORD_PATTERN=/^(minced|chopped|diced|sliced|slivered|julienned|shredded|grated|melted|softened|beaten|whisked|peeled|seeded|cored|pitted|trimmed|halved|quartered|crushed|mashed|drained|rinsed|room temperature|cold|divided|optional|to taste|for garnish|for serving)\b/i;
@@ -528,10 +564,10 @@ export default function Home() {
             </div>
 
             <div className="mt-10 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-14">
-              <section className="min-w-0"><button onClick={()=>setIngredientsCollapsed(v=>!v)} aria-expanded={!ingredientsCollapsed} aria-controls="ingredients-list" className="flex w-full items-center justify-between gap-3 text-left"><h3 className="font-serif text-2xl font-bold">Ingredients</h3><span aria-label={ingredientsCollapsed?"Expand ingredients":"Collapse ingredients"} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#d8d5cd] bg-white text-[#257F4B] hover:bg-[#f1f4ef]">{ingredientsCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!ingredientsCollapsed&&<div id="ingredients-list" className="mt-4 divide-y divide-[#e8e0d1]">{(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,index)=>{const item=normalizeIngredient(raw);if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);return <div key={index} className="flex min-w-0 items-start gap-4 py-3"><strong className="w-16 shrink-0 whitespace-nowrap text-[#257F4B] sm:w-20">{item.hasQty!==false&&<>{Math.round(amount*100)/100} {displayUnit(item.unit,amount)}</>}</strong><span className="min-w-0 flex-1 leading-6">{item.name}</span></div>})}</div>}</section>
+              <section className="min-w-0"><button onClick={()=>setIngredientsCollapsed(v=>!v)} aria-expanded={!ingredientsCollapsed} aria-controls="ingredients-list" className="flex w-full items-center justify-between gap-3 text-left"><h3 className="font-serif text-2xl font-bold">Ingredients</h3><span aria-label={ingredientsCollapsed?"Expand ingredients":"Collapse ingredients"} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#d8d5cd] bg-white text-[#257F4B] hover:bg-[#f1f4ef]">{ingredientsCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!ingredientsCollapsed&&<ul id="ingredients-list" className="mt-4 space-y-3.5">{(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,index)=>{const item=normalizeIngredient(raw);if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);const phrase=formatIngredientPhrase(item,amount);return <li key={index} className="flex items-start gap-3 text-lg leading-relaxed text-[#1f3529] sm:text-base"><span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-[#526158]" aria-hidden="true"/><span className="min-w-0 flex-1">{phrase}</span></li>})}</ul>}</section>
               <section className="min-w-0"><h3 className="font-serif text-2xl font-bold">Directions</h3>{activeRecipe.directions?.length?<>
                 <p className="mt-2 text-sm text-[#6d786f]">Tap a step when you finish it to check it off while you cook.</p>
-                <ol className="mt-5 space-y-4">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);return <li key={index}><button onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 items-start gap-4 rounded-2xl border border-transparent p-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35 ${done?"hover:bg-[#f5f8f4]":"hover:border-[#dbe4dc] hover:bg-[#f5f8f4]"}`}><span className={`grid size-9 shrink-0 place-items-center rounded-full font-semibold text-white ${done?"bg-[#c7d3c8]":"bg-[#257F4B]"}`}>{done?<Check size={16}/>:index+1}</span><p className={`min-w-0 flex-1 pt-1 leading-7 ${done?"text-[#8a9187] line-through":""}`}>{step}</p></button></li>})}</ol>
+                <ol className="mt-5 space-y-4">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);return <li key={index}><button onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 items-start gap-4 rounded-2xl border border-transparent p-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35 ${done?"hover:bg-[#f5f8f4]":"hover:border-[#dbe4dc] hover:bg-[#f5f8f4]"}`}><span className={`grid size-9 shrink-0 place-items-center rounded-full font-semibold text-white ${done?"bg-[#c7d3c8]":"bg-[#257F4B]"}`}>{done?<Check size={16}/>:index+1}</span><p className={`min-w-0 flex-1 pt-1 text-lg leading-relaxed text-[#1f3529] sm:text-base ${done?"text-[#8a9187] line-through":""}`}>{step}</p></button></li>})}</ol>
                 {completedSteps.length===activeRecipe.directions.length&&<div className="mt-6 rounded-2xl border border-[#bcd6c1] bg-[#eaf3ea] p-5 text-center"><Check className="mx-auto mb-2 text-[#257F4B]"/><p className="font-semibold text-[#244832]">All steps done — enjoy!</p></div>}
               </>:<p className="mt-4 rounded-xl bg-[#f2ecdf] p-4 text-sm text-[#6d786f]">Directions weren’t included with this saved recipe. Re-import it from its recipe page to add them.</p>}</section>
             </div>
