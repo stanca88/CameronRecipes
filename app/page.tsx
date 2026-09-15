@@ -355,6 +355,7 @@ export default function Home() {
   const [collapsed,setCollapsed]=useState<Record<string,boolean>>({});
   const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("plan");
+  const [shopTab,setShopTab]=useState<"meals"|"global">("meals");
   const [preRecipesView,setPreRecipesView]=useState("plan");
   const [planPicking,setPlanPicking]=useState(false);
   const [planQuery,setPlanQuery]=useState("");
@@ -614,6 +615,25 @@ export default function Home() {
       setGlobalItems(items=>items.filter(current=>current.id!==item.id));
     }catch(error){setGlobalItemError(error instanceof Error?error.message:"Failed to remove global item");console.error("Failed to remove global shopping item:",error)}
   };
+  const toggleGlobalItem=async(item:ShoppingItem)=>{
+    const checked=!item.checked;
+    setGlobalItems(items=>items.map(current=>current.id===item.id?{...current,checked}:current));
+    try{
+      const response=await toggleShoppingItem(item.id,checked);
+      if(response?.error)throw new Error(response.error);
+    }catch(error){
+      setGlobalItems(items=>items.map(current=>current.id===item.id?{...current,checked:!checked}:current));
+      setGlobalItemError(error instanceof Error?error.message:"Failed to update global item");
+      console.error("Failed to sync global shopping item:",error);
+    }
+  };
+  const globalItemPhrase=(item:ShoppingItem)=>formatIngredientPhrase({
+    name:item.ingredient_name,
+    amount:item.ingredient_amount||1,
+    unit:item.ingredient_unit,
+    category:"Global",
+    hasQty:Boolean(item.ingredient_amount||item.ingredient_unit),
+  });
 
   const nav=[{value:"plan",label:"Plan",icon:ChefHat},{value:"shop",label:"Shop",icon:ShoppingBasket}];
   const changeView=(v:string)=>{if(v!=="recipes"&&v!=="history")setPreRecipesView(v);setView(v)};
@@ -714,14 +734,11 @@ export default function Home() {
           : <div>{orderedSelectedRecipes.length?planRecipeGrid(orderedSelectedRecipes):null}{selected.length>0&&<Button type="button" variant="outline" onClick={()=>setPlanPicking(true)} className="mt-4 w-full rounded-2xl border-dashed border-[#c9d6cb] bg-transparent py-6 text-[#45644e] shadow-none hover:bg-[#f2f5f1] hover:text-[#244832]"><Plus size={18}/>Add another recipe</Button>}{selected.length===0&&<div role="button" tabIndex={0} onClick={()=>setPlanPicking(true)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPlanPicking(true)}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35"><ChefHat className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div>}</TabsContent>
 
         <TabsContent value="shop">
-          <section className="mb-5 rounded-2xl border border-[#bcd6c1] bg-[#eef5ed] p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="min-w-0 flex-1"><h2 className="font-serif text-xl font-bold text-[#244832]">Global items</h2><p className="mt-1 text-sm text-[#5d6f61]">Add staples you already have. Matching recipe ingredients stay out of this week’s list.</p><div className="mt-3 flex gap-2"><Input value={globalItemText} onChange={event=>setGlobalItemText(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addGlobalItem()}}} placeholder="e.g. flour or olive oil" aria-label="Global shopping item"/><Button type="button" onClick={addGlobalItem} disabled={!globalItemText.trim()||savingGlobalItem} className="shrink-0 bg-[#257F4B] text-white hover:bg-[#1f6b3f]">{savingGlobalItem?"Adding…":"Add item"}</Button></div></div>
-            </div>
-            {globalItemError&&<p className="mt-3 rounded-xl bg-[#fbe9e2] p-3 text-sm text-[#9a402d]">{globalItemError}</p>}
-            {globalItems.length>0&&<div className="mt-3 flex flex-wrap gap-2">{globalItems.map(item=><span key={item.id} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-[#244832] shadow-sm">{formatIngredientPhrase(item.ingredient_amount||item.ingredient_unit?{name:item.ingredient_name,amount:item.ingredient_amount||1,unit:item.ingredient_unit,category:"Global",hasQty:Boolean(item.ingredient_amount||item.ingredient_unit)}: {name:item.ingredient_name,amount:1,unit:"",category:"Global",hasQty:false})}<button type="button" onClick={()=>removeGlobalItem(item)} aria-label={`Remove ${item.ingredient_name} from global items`} className="ml-1 rounded-full p-1 text-[#78907c] hover:bg-[#eaf3ea] hover:text-[#a33f32]"><X size={14}/></button></span>)}</div>}
-          </section>
-          {grocery.length?
+          <div className="mb-6 grid grid-cols-2 rounded-2xl bg-[#f2ecdf] p-1" role="tablist" aria-label="Shopping list source">
+            <button type="button" role="tab" aria-selected={shopTab==="meals"} onClick={()=>setShopTab("meals")} className={`rounded-xl px-4 py-3 text-sm font-bold transition ${shopTab==="meals"?"bg-white text-[#257F4B] shadow-sm":"text-[#6d786f] hover:text-[#244832]"}`}>From meals</button>
+            <button type="button" role="tab" aria-selected={shopTab==="global"} onClick={()=>setShopTab("global")} className={`rounded-xl px-4 py-3 text-sm font-bold transition ${shopTab==="global"?"bg-white text-[#257F4B] shadow-sm":"text-[#6d786f] hover:text-[#244832]"}`}>Global</button>
+          </div>
+          {shopTab==="meals" ? (grocery.length?
             <div className="min-w-0">
               {/* Balanced columns implemented in JS to ensure top-aligned cards */}
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-4">
@@ -749,7 +766,18 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-            </div> : <div role="button" tabIndex={0} onClick={()=>goAway("recipes")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();goAway("recipes")}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35"><ShoppingBasket className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Add meals to build your shopping list.</p></div>}
+            </div> : <div role="button" tabIndex={0} onClick={()=>goAway("recipes")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();goAway("recipes")}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35"><ShoppingBasket className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Add meals to build your shopping list.</p></div>) : <div className="space-y-6">
+              <section className="rounded-2xl border border-[#bcd6c1] bg-[#eef5ed] p-4">
+                <h2 className="font-serif text-xl font-bold text-[#244832]">Global items</h2>
+                <p className="mt-1 text-sm text-[#5d6f61]">Shared staples and extra shopping tasks for the family.</p>
+                <div className="mt-4 flex gap-2"><Input value={globalItemText} onChange={event=>setGlobalItemText(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addGlobalItem()}}} placeholder="Add a task or item" aria-label="Global shopping task"/><Button type="button" onClick={addGlobalItem} disabled={!globalItemText.trim()||savingGlobalItem} className="shrink-0 bg-[#257F4B] text-white hover:bg-[#1f6b3f]">{savingGlobalItem?"Adding…":"Add a task"}</Button></div>
+                {globalItemError&&<p className="mt-3 rounded-xl bg-[#fbe9e2] p-3 text-sm text-[#9a402d]">{globalItemError}</p>}
+              </section>
+              {(["To get","Completed"] as const).map((heading,index)=>{
+                const items=globalItems.filter(item=>index===0?!item.checked:item.checked);
+                return <section key={heading}><h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-bold text-[#45644e]"><span className="grid size-8 place-items-center rounded-full bg-[#e6efe7] text-[#257F4B]">{index===0?<Plus size={16}/>:<Check size={16}/>}</span>{heading}<span className="text-sm font-sans font-medium text-[#8a9187]">({items.length})</span></h2><div className="space-y-2">{items.map(item=><div key={item.id} className="flex items-center gap-3 rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] px-3 py-3 shadow-[0_2px_10px_rgba(45,61,50,.04)]"><Checkbox className="size-6 shrink-0 sm:size-5" checked={item.checked} onCheckedChange={()=>toggleGlobalItem(item)} aria-label={`${item.checked?"Uncheck":"Complete"} ${item.ingredient_name}`}/><span className={`min-w-0 flex-1 text-lg leading-relaxed ${item.checked?"text-[#8a9187] line-through":"text-[#1f3529]"}`}>{globalItemPhrase(item)}</span><button type="button" onClick={()=>removeGlobalItem(item)} aria-label={`Remove ${item.ingredient_name}`} className="grid size-9 shrink-0 place-items-center rounded-full text-[#78907c] hover:bg-[#fbe9e2] hover:text-[#a33f32]"><X size={16}/></button></div>)}{!items.length&&<p className="rounded-2xl border border-dashed border-[#cfc5b2] p-5 text-sm text-[#6d786f]">{index===0?"Everything is checked off.":"Completed items will appear here."}</p>}</div></section>
+              })}
+            </div>}
           </TabsContent>
 
         <TabsContent value="history"><div className="space-y-4">{history.map(week=><article key={week.id} className="rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-[#9a735e]">Meal plan</p><h3 className="font-serif text-xl font-bold">{week.label}</h3></div><span className="text-xs text-[#778078]">Saved {new Date(week.savedAt).toLocaleDateString()}</span></div><div className="grid gap-2 sm:grid-cols-2">{week.meals.map(meal=><div key={meal.id} className="flex items-center gap-3 rounded-xl bg-[#f3ede1] p-3"><span className="text-2xl">{meal.emoji}</span><div className="min-w-0"><p className="truncate font-medium">{meal.title}</p><p className="text-xs text-[#6d786f]">{meal.day?`${meal.day} · `:""}For {meal.people} people{meal.chef?` · Chef ${meal.chef}`:""}</p></div></div>)}</div></article>)}{!history.length&&<div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center"><HistoryIcon className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">No completed weeks yet.</p><p className="mt-1 text-sm text-[#6d786f]">A week will appear here automatically after it ends.</p></div>}</div></TabsContent>

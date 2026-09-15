@@ -174,6 +174,10 @@ for the active week.
 - Exclude a generated recipe ingredient from the weekly categories when it
   matches a global item, while keeping the global item visible in its own
   section.
+- Separate the shopping view into `From meals` and `Global` tabs.
+- In `Global`, separate items to get from completed items and let users move
+  an item between those sections by checking or unchecking it.
+- Let users add free-form global shopping tasks.
 
 - Combine matching ingredients across selected recipes.
 - Scale totals according to each meal's servings.
