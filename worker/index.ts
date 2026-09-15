@@ -1,7 +1,12 @@
 // @ts-nocheck
 /** Cloudflare Worker entry point - not used for GitHub Pages static export */
 
-export {};
+import handler from "vinext/server/app-router-entry";
+import {
+  DEFAULT_DEVICE_SIZES,
+  DEFAULT_IMAGE_SIZES,
+  handleImageOptimization,
+} from "vinext/server/image-optimization";
 
 
 interface Env {
