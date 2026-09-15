@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { subscribeToShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan, subscribeToHistory, fetchHistory, saveHistoryWeek } from "@/app/lib/realtime";
+import { subscribeToShoppingList, subscribeToGlobalShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan, subscribeToHistory, fetchHistory, saveHistoryWeek } from "@/app/lib/realtime";
 
 type Ingredient = { name: string; amount: number; unit: string; category: string; hasQty?: boolean };
 type Recipe = { id: string; title: string; emoji: string; time: string; serves: number; author: string; ingredients: Ingredient[]; image?: string; directions?: string[]; sourceUrl?: string; sourceName?: string };
@@ -163,6 +163,18 @@ function pluralizeWord(word:string):string {
 function singularizeName(name:string):string {
   const [prefix,last]=splitLastWord(name);
   return prefix+singularizeWord(last);
+}
+
+function ingredientMatchKey(name:string) {
+  return singularizeName(name.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim());
+}
+
+function matchesGlobalIngredient(name:string, globalItems:ShoppingItem[]) {
+  const recipeKey = ingredientMatchKey(name);
+  return globalItems.some(item => {
+    const globalKey = ingredientMatchKey(item.ingredient_name);
+    return globalKey === recipeKey || (globalKey.length > 2 && recipeKey.length > 2 && (recipeKey.includes(globalKey) || globalKey.includes(recipeKey)));
+  });
 }
 
 function pluralizeName(name:string):string {
@@ -351,9 +363,14 @@ export default function Home() {
   useEffect(()=>{if(view!=="plan"){setPlanPicking(false);setPlanQuery("");setPlanSearchOpen(false)}},[view]);
   const [syncing,setSyncing]=useState(false);
   const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
+  const [globalItems,setGlobalItems]=useState<ShoppingItem[]>([]);
+  const [globalItemText,setGlobalItemText]=useState("");
+  const [globalItemError,setGlobalItemError]=useState("");
+  const [savingGlobalItem,setSavingGlobalItem]=useState(false);
   const [planSynced,setPlanSynced]=useState<Record<string,boolean>>({});
   const [recipesLoaded,setRecipesLoaded]=useState(false);
   const unsubscribeRef=useRef<(() => void)|null>(null);
+  const globalUnsubscribeRef=useRef<(() => void)|null>(null);
   const planUnsubscribeRef=useRef<(() => void)|null>(null);
   const historyUnsubscribeRef=useRef<(() => void)|null>(null);
   const activeWeekKey=weekKey(weekOffset);
@@ -439,7 +456,13 @@ export default function Home() {
     if(newUrl!==window.location.pathname+window.location.search)window.history.replaceState({},"",newUrl);
   },[loaded,sharedLinkApplied,view,activeRecipe,weekOffset]);
   const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)){const normalized=shared.map((r:any)=>({...r,sourceUrl:r.sourceUrl||r.source_url||undefined,sourceName:r.sourceName||r.source_name||undefined,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>normalizeIngredient(i)).filter((i:Ingredient|null):i is Ingredient=>i!==null):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string=>typeof d==="string"):[]}));setRecipes(normalized);setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>[key,{...plan,selected:plan.selected.filter(id=>normalized.some(recipe=>recipe.id===id)),servings:Object.fromEntries(Object.entries(plan.servings).filter(([id])=>normalized.some(recipe=>recipe.id===id))),checked:plan.checked,chefs:Object.fromEntries(Object.entries(plan.chefs||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id))),days:Object.fromEntries(Object.entries(plan.days||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id)))}])));setRecipesLoaded(true);return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
-  const syncNow=async()=>{setSyncing(true);try{const hasShared=await loadSharedRecipes();if(hasShared){const response=await fetch(`/api/shopping?week_key=${encodeURIComponent(activeWeekKey)}`);if(response.ok){const {items}=await response.json();if(Array.isArray(items))setShoppingItems(items)}}return hasShared}finally{setSyncing(false)}};
+  const syncGlobalItems=async()=>{
+    const response=await fetch("/api/shopping/global");
+    if(!response.ok) throw new Error("Failed to fetch global shopping items");
+    const {items}=await response.json();
+    if(Array.isArray(items)) setGlobalItems(items);
+  };
+  const syncNow=async()=>{setSyncing(true);try{const hasShared=await loadSharedRecipes();if(hasShared){const response=await fetch(`/api/shopping?week_key=${encodeURIComponent(activeWeekKey)}`);if(response.ok){const {items}=await response.json();if(Array.isArray(items))setShoppingItems(items)}await syncGlobalItems()}return hasShared}finally{setSyncing(false)}};
   const hardRefresh=async()=>{setSyncing(true);try{await syncNow()}finally{window.location.reload()}};
   useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
   const mergeRemoteHistory=(remoteWeeks:any[])=>{
@@ -476,18 +499,19 @@ export default function Home() {
     const items=new Map<string,Ingredient>();
     recipes.filter(r=>selected.includes(r.id)).forEach(r=>(Array.isArray(r.ingredients)?r.ingredients:[]).forEach(raw=>{
       const normalized=normalizeIngredient(raw); if(!normalized)return;
+      if(matchesGlobalIngredient(normalized.name,globalItems)) return;
       const i=/^c$/i.test(normalized.unit.trim())?{...normalized,amount:normalized.amount*8,unit:"oz"}:normalized;
       const canonicalName=singularizeName(i.name.trim());
       const key=`${canonicalName.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
       items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4)),hasQty:(old?.hasQty??false)||(i.hasQty??false)});
       })); return [...items.values()].sort((a,b)=>(GROCERY_CATEGORY_ORDER.indexOf(a.category)-GROCERY_CATEGORY_ORDER.indexOf(b.category))||a.name.localeCompare(b.name));
-  },[recipes,selected,servings]);
+  },[recipes,selected,servings,globalItems]);
   const categories=[...new Set(grocery.map(i=>i.category))];
   const syncedChecked=useMemo(()=>{const localSet=new Set(checked);const syncedKeys=new Set(shoppingItems.filter(s=>s.checked).map(s=>s.ingredient_key));return Array.from(new Set([...localSet,...syncedKeys]));},[checked,shoppingItems]);
   const grocerySignature=useMemo(()=>JSON.stringify(grocery.map(g=>[g.name.toLowerCase(),g.unit.toLowerCase(),g.category,Math.round(g.amount*100)])),[grocery]);
   const lastSavedGrocerySignatureRef=useRef<Record<string,string>>({});
   useEffect(()=>{
-    if(!loaded||grocery.length===0)return;
+    if(!loaded)return;
     if(lastSavedGrocerySignatureRef.current[activeWeekKey]===grocerySignature)return;
     (async()=>{
       try{
@@ -503,6 +527,12 @@ export default function Home() {
     unsubscribeRef.current=subscribeToShoppingList(activeWeekKey,(items:ShoppingItem[])=>setShoppingItems(items));
     return()=>{if(unsubscribeRef.current)unsubscribeRef.current()};
   },[activeWeekKey,loaded]);
+  useEffect(()=>{
+    if(!loaded)return;
+    if(globalUnsubscribeRef.current)globalUnsubscribeRef.current();
+    globalUnsubscribeRef.current=subscribeToGlobalShoppingList(setGlobalItems);
+    return()=>{if(globalUnsubscribeRef.current)globalUnsubscribeRef.current()};
+  },[loaded]);
   const planSignature=JSON.stringify(activePlan);
   useEffect(()=>{
     if(!loaded||!planSynced[activeWeekKey]||!recipesLoaded)return;
@@ -563,6 +593,27 @@ export default function Home() {
   const importRecipe=async()=>{if(!url.trim())return;setImporting(true);setImportError("");try{const response=await fetch("/api/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({url})});const data=await response.json();if(!response.ok)throw new Error(data.error||"We couldn't import that recipe.");setTitle(data.title||"");setIngredients((data.ingredients||[]).join("\n"));setDirections((data.directions||[]).join("\n"));setImageUrl(data.image||"");setSourceName(data.sourceName||"");setAddMode("review")}catch(error){setImportError(error instanceof Error?error.message:"We couldn't import that recipe.")}finally{setImporting(false)}};
   const deleteRecipe=async(id:string)=>{try{const response=await fetch(`/api/recipes/${id}`,{method:"DELETE"});if(!response.ok)throw new Error("Failed to delete recipe");await syncNow();setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>{const nextServings={...plan.servings};const nextChefs={...(plan.chefs||{})};const nextDays={...(plan.days||{})};delete nextServings[id];delete nextChefs[id];delete nextDays[id];return[key,{...plan,selected:plan.selected.filter(recipeId=>recipeId!==id),servings:nextServings,chefs:nextChefs,days:nextDays}]})));setActiveRecipe(null)}catch(error){console.error("Failed to delete recipe from database:",error)}};
   const toggleShoppingItemSync=async(itemKey:string,shouldCheck:boolean)=>{setChecked(v=>shouldCheck?[...v,itemKey]:v.filter(x=>x!==itemKey));setShoppingItems(items=>items.map(si=>si.ingredient_key===itemKey?{...si,checked:shouldCheck}:si));const shoppingItem=shoppingItems.find(si=>si.ingredient_key===itemKey);if(shoppingItem){try{await toggleShoppingItem(shoppingItem.id,shouldCheck)}catch(error){console.error("Failed to sync shopping item:",error)}}};
+  const addGlobalItem=async()=>{
+    const text=globalItemText.trim();
+    if(!text)return;
+    setSavingGlobalItem(true);setGlobalItemError("");
+    try{
+      const parsed=parseIngredientLine(text);
+      const response=await fetch("/api/shopping/global",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({ingredient_name:parsed.name,ingredient_amount:parsed.hasQty===false?0:parsed.amount,ingredient_unit:parsed.hasQty===false?"":parsed.unit,ingredient_key:ingredientMatchKey(parsed.name)})});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||"Failed to save global item");
+      setGlobalItems(items=>[...items.filter(item=>item.id!==data.id),data].sort((a,b)=>a.ingredient_name.localeCompare(b.ingredient_name)));
+      setGlobalItemText("");
+    }catch(error){setGlobalItemError(error instanceof Error?error.message:"Failed to save global item");console.error("Failed to save global shopping item:",error)}
+    finally{setSavingGlobalItem(false)}
+  };
+  const removeGlobalItem=async(item:ShoppingItem)=>{
+    try{
+      const response=await fetch(`/api/shopping/global?id=${encodeURIComponent(item.id)}`,{method:"DELETE"});
+      if(!response.ok)throw new Error("Failed to remove global item");
+      setGlobalItems(items=>items.filter(current=>current.id!==item.id));
+    }catch(error){setGlobalItemError(error instanceof Error?error.message:"Failed to remove global item");console.error("Failed to remove global shopping item:",error)}
+  };
 
   const nav=[{value:"plan",label:"Plan",icon:ChefHat},{value:"shop",label:"Shop",icon:ShoppingBasket}];
   const changeView=(v:string)=>{if(v!=="recipes"&&v!=="history")setPreRecipesView(v);setView(v)};
@@ -662,7 +713,15 @@ export default function Home() {
             </div>
           : <div>{orderedSelectedRecipes.length?planRecipeGrid(orderedSelectedRecipes):null}{selected.length>0&&<Button type="button" variant="outline" onClick={()=>setPlanPicking(true)} className="mt-4 w-full rounded-2xl border-dashed border-[#c9d6cb] bg-transparent py-6 text-[#45644e] shadow-none hover:bg-[#f2f5f1] hover:text-[#244832]"><Plus size={18}/>Add another recipe</Button>}{selected.length===0&&<div role="button" tabIndex={0} onClick={()=>setPlanPicking(true)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPlanPicking(true)}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35"><ChefHat className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div>}</TabsContent>
 
-        <TabsContent value="shop">{grocery.length?
+        <TabsContent value="shop">
+          <section className="mb-5 rounded-2xl border border-[#bcd6c1] bg-[#eef5ed] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1"><h2 className="font-serif text-xl font-bold text-[#244832]">Global items</h2><p className="mt-1 text-sm text-[#5d6f61]">Add staples you already have. Matching recipe ingredients stay out of this week’s list.</p><div className="mt-3 flex gap-2"><Input value={globalItemText} onChange={event=>setGlobalItemText(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addGlobalItem()}}} placeholder="e.g. flour or olive oil" aria-label="Global shopping item"/><Button type="button" onClick={addGlobalItem} disabled={!globalItemText.trim()||savingGlobalItem} className="shrink-0 bg-[#257F4B] text-white hover:bg-[#1f6b3f]">{savingGlobalItem?"Adding…":"Add item"}</Button></div></div>
+            </div>
+            {globalItemError&&<p className="mt-3 rounded-xl bg-[#fbe9e2] p-3 text-sm text-[#9a402d]">{globalItemError}</p>}
+            {globalItems.length>0&&<div className="mt-3 flex flex-wrap gap-2">{globalItems.map(item=><span key={item.id} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-[#244832] shadow-sm">{formatIngredientPhrase(item.ingredient_amount||item.ingredient_unit?{name:item.ingredient_name,amount:item.ingredient_amount||1,unit:item.ingredient_unit,category:"Global",hasQty:Boolean(item.ingredient_amount||item.ingredient_unit)}: {name:item.ingredient_name,amount:1,unit:"",category:"Global",hasQty:false})}<button type="button" onClick={()=>removeGlobalItem(item)} aria-label={`Remove ${item.ingredient_name} from global items`} className="ml-1 rounded-full p-1 text-[#78907c] hover:bg-[#eaf3ea] hover:text-[#a33f32]"><X size={14}/></button></span>)}</div>}
+          </section>
+          {grocery.length?
             <div className="min-w-0">
               {/* Balanced columns implemented in JS to ensure top-aligned cards */}
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-4">

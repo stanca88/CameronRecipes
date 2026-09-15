@@ -169,6 +169,12 @@ The recipe detail view must be usable while cooking.
 The product must automatically generate a shopping list from recipes selected
 for the active week.
 
+- Let users add and remove shared global items for ingredients they already
+  keep on hand.
+- Exclude a generated recipe ingredient from the weekly categories when it
+  matches a global item, while keeping the global item visible in its own
+  section.
+
 - Combine matching ingredients across selected recipes.
 - Scale totals according to each meal's servings.
 - Group items into practical grocery-aisle categories: Produce, Meat &
