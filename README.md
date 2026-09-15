@@ -4,11 +4,18 @@ A family recipe collection, weekly meal planner, and automatically generated sho
 
 ## Current site
 
-The working site is available at:
+The production site is available at:
 
-https://cameron-family-recipes.mariacam88.chatgpt.site
+https://cameron-recipes.vercel.app
 
 The `main` branch contains the source used by the live site. The GitHub Actions build runs automatically after every push so broken changes are caught before deployment.
+
+## Product and agent documentation
+
+- [`PRODUCT_REQUIREMENTS.md`](PRODUCT_REQUIREMENTS.md) is the human-readable
+  source of truth for product behavior and experience.
+- [`AGENTS.md`](AGENTS.md) explains how another coding agent should update,
+  verify, and publish the site.
 
 ## Features
 
