@@ -232,13 +232,38 @@ function cleanIngredientName(rawName:string):string {
   return name||rawName.trim();
 }
 
-function categoryFor(name:string) {
+const GROCERY_CATEGORY_ORDER=[
+  "Produce",
+  "Meat & Seafood",
+  "Dairy & Eggs",
+  "Bakery",
+  "Pantry / Dry Goods",
+  "Canned & Jarred Goods",
+  "Soups, Broths & Stocks",
+  "Condiments & Sauces",
+  "Spices & Seasonings",
+  "Frozen",
+  "Snacks",
+  "Beverages",
+  "Household / Other",
+];
+
+function categoryFor(name:string, unit="") {
   const value=name.toLowerCase();
-  if(/chicken|beef|turkey|pork|sausage|bacon|salmon|shrimp|fish/.test(value)) return "Meat & seafood";
-  if(/milk|cheese|cream|yogurt|butter|egg/.test(value)) return "Dairy & eggs";
-  if(/bread|tortilla|bun|roll|pita/.test(value)) return "Bakery";
-  if(/tomato|onion|garlic|pepper|lettuce|lemon|lime|potato|cucumber|apple|carrot|celery|herb|parsley|basil|cilantro/.test(value)) return "Produce";
-  return "Pantry";
+  if(/\b(broth|stock|bouillon|consomm[eé])\b/.test(value)) return "Soups, Broths & Stocks";
+  if(/\b(chicken|beef|turkey|pork|lamb|sausage|bacon|ham|salmon|shrimp|prawn|fish|tuna|cod|meat)\b/.test(value)) return "Meat & Seafood";
+  if(/\b(milk|cheese|feta|cream|yogurt|butter|egg|eggs|sour cream|cottage cheese)\b/.test(value)) return "Dairy & Eggs";
+  if(/\b(bread|tortilla|bun|roll|pita|bagel|brioche|naan)\b/.test(value)) return "Bakery";
+  if(/\b(canned|jarred|tomato paste|tomato sauce|marinara|canned tomatoes|pickles|olives|jam|jelly)\b/.test(value)||/^(can|jar)$/.test(unit)) return "Canned & Jarred Goods";
+  if(/\b(mayo|mayonnaise|mustard|ketchup|soy sauce|hot sauce|salsa|vinegar|dressing|olive oil|vegetable oil|sesame oil)\b/.test(value)) return "Condiments & Sauces";
+  if(/\b(salt|pepper|cumin|paprika|cinnamon|oregano|thyme|rosemary|basil|seasoning|spice|nutmeg|chili powder|curry)\b/.test(value)) return "Spices & Seasonings";
+  if(/\b(frozen|ice cream|sorbet)\b/.test(value)) return "Frozen";
+  if(/\b(chips|crackers|popcorn|pretzel|granola bar|snack|nuts|trail mix)\b/.test(value)) return "Snacks";
+  if(/\b(coffee|tea|juice|soda|water|lemonade|wine|beer|drink|beverage)\b/.test(value)) return "Beverages";
+  if(/\b(foil|plastic wrap|paper towel|napkin|detergent|cleaner|trash bag|parchment)\b/.test(value)) return "Household / Other";
+  if(/\b(quinoa|rice|pasta|noodle|grain|oat|flour|sugar|bean|lentil|couscous|cornmeal|breadcrumb)\b/.test(value)) return "Pantry / Dry Goods";
+  if(/\b(tomato|onion|garlic|pepper|lettuce|lemon|lime|potato|cucumber|apple|carrot|celery|spinach|kale|avocado|mushroom|broccoli|zucchini|herb|parsley|cilantro|mint|scallion|ginger)\b/.test(value)) return "Produce";
+  return "Pantry / Dry Goods";
 }
 
 function ingredientLineFor(item:Ingredient) {
@@ -248,6 +273,7 @@ function ingredientLineFor(item:Ingredient) {
 }
 
 const DESCRIPTOR_UNIT_PATTERN=/^(cloves?|pinch(?:es)?|cans?|slices?|heads?|stalks?|sprigs?|packages?|pkgs?|bunch(?:es)?|large|medium|small|whole)\s+(.+)$/i;
+const TRAILING_DESCRIPTOR_UNIT_PATTERN=/^(.+?)\s+(cloves?|pinch(?:es)?|cans?|slices?|heads?|stalks?|sprigs?|packages?|pkgs?|bunch(?:es)?|large|medium|small|whole)$/i;
 
 function normalizeIngredient(raw:unknown):Ingredient|null {
   if(typeof raw==="string"){
@@ -269,7 +295,8 @@ function normalizeIngredient(raw:unknown):Ingredient|null {
   if(trailingFraction){amount+=Number(trailingFraction[1]||1)/Number(trailingFraction[2]);name=trailingFraction[3]}
   name=cleanIngredientName(name);
   if(!unit&&hasQty){const descriptorMatch=name.match(DESCRIPTOR_UNIT_PATTERN);if(descriptorMatch){unit=abbreviateUnit(descriptorMatch[1]);name=descriptorMatch[2]}}
-  return {name,amount,unit,category:typeof item.category==="string"&&item.category?item.category:categoryFor(name),hasQty};
+  if(!unit){const trailingDescriptorMatch=name.match(TRAILING_DESCRIPTOR_UNIT_PATTERN);if(trailingDescriptorMatch){name=trailingDescriptorMatch[1];unit=abbreviateUnit(trailingDescriptorMatch[2])}}
+  return {name,amount,unit,category:categoryFor(name,unit),hasQty};
 }
 
 function parseIngredientLine(line:string):Ingredient {
@@ -278,10 +305,15 @@ function parseIngredientLine(line:string):Ingredient {
     .replace(/(\d)½/g,"$1 1/2").replace(/(\d)¼/g,"$1 1/4").replace(/(\d)¾/g,"$1 3/4").replace(/(\d)⅓/g,"$1 1/3").replace(/(\d)⅔/g,"$1 2/3")
     .replace(/^½/,"1/2 ").replace(/^¼/,"1/4 ").replace(/^¾/,"3/4 ").replace(/^⅓/,"1/3 ").replace(/^⅔/,"2/3 ");
   const match=normalized.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s+(?:(cups?|tablespoons?|tbsp|teaspoons?|tsp|ounces?|oz|pounds?|lbs?|lb|grams?|g|kg|ml|liters?|l|cloves?|pinch(?:es)?|cans?|slices?|heads?|stalks?|sprigs?|packages?|pkgs?|bunch(?:es)?|large|medium|small|whole)\b\s*)?(.*)$/i);
-  if(!match)return{name:clean,amount:1,unit:"",category:categoryFor(clean),hasQty:false};
+  if(!match){
+    const trailingDescriptorMatch=clean.match(TRAILING_DESCRIPTOR_UNIT_PATTERN);
+    if(trailingDescriptorMatch)return{name:trailingDescriptorMatch[1],amount:1,unit:abbreviateUnit(trailingDescriptorMatch[2]),category:categoryFor(trailingDescriptorMatch[1],abbreviateUnit(trailingDescriptorMatch[2])),hasQty:false};
+    return{name:clean,amount:1,unit:"",category:categoryFor(clean),hasQty:false};
+  }
   const rawAmount=match[1]; const amount=rawAmount.split(/\s+/).reduce((total,part)=>{if(!part.includes("/"))return total+Number(part);const [top,bottom]=part.split("/").map(Number);return total+top/bottom},0);
   const name=cleanIngredientName((match[3]||clean).replace(/^of\s+/i,"").trim());
-  return{name,amount,unit:abbreviateUnit(match[2]||""),category:categoryFor(name),hasQty:true};
+  const parsedUnit=abbreviateUnit(match[2]||"");
+  return{name,amount,unit:parsedUnit,category:categoryFor(name,parsedUnit),hasQty:true};
 }
 
 export default function Home() {
@@ -448,7 +480,7 @@ export default function Home() {
       const canonicalName=singularizeName(i.name.trim());
       const key=`${canonicalName.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
       items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4)),hasQty:(old?.hasQty??false)||(i.hasQty??false)});
-    })); return [...items.values()].sort((a,b)=>a.category.localeCompare(b.category));
+      })); return [...items.values()].sort((a,b)=>(GROCERY_CATEGORY_ORDER.indexOf(a.category)-GROCERY_CATEGORY_ORDER.indexOf(b.category))||a.name.localeCompare(b.name));
   },[recipes,selected,servings]);
   const categories=[...new Set(grocery.map(i=>i.category))];
   const syncedChecked=useMemo(()=>{const localSet=new Set(checked);const syncedKeys=new Set(shoppingItems.filter(s=>s.checked).map(s=>s.ingredient_key));return Array.from(new Set([...localSet,...syncedKeys]));},[checked,shoppingItems]);
