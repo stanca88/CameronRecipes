@@ -20,6 +20,42 @@ experience standards, constraints, and release acceptance criteria.
 Never put Supabase keys, access tokens, passwords, or other secrets in source
 code, commits, pull requests, screenshots, or chat messages.
 
+## Access and Authentication
+
+The system has three separate services:
+
+- **GitHub** (`stanca88/CameronRecipes`) stores the source code and pull
+  requests.
+- **Vercel** hosts and deploys the production site.
+- **Supabase** stores shared application data.
+
+Do not ask the user to paste credentials into chat. The user or account owner
+must authenticate the working environment through the official service or add
+the maintainer as a collaborator.
+
+Before attempting GitHub writes, verify the active account and repository
+access:
+
+```bash
+gh auth status
+gh repo view stanca88/CameronRecipes
+```
+
+If GitHub is not authenticated, ask the user to complete `gh auth login`.
+Authentication does not grant repository permissions by itself; the signed-in
+account must also have write access. Work through a feature branch and pull
+request rather than pushing directly to `main`.
+
+Routine releases do not require an interactive Vercel login because Vercel
+deploys automatically after a pull request is merged into `main`. Vercel
+project access is needed only to change project settings, manage environment
+variables, or inspect deployment details unavailable from the GitHub status.
+
+Supabase dashboard access is needed only for schema, policy, or project-setting
+changes. Use a separately authorized collaborator account. For normal app
+development, use locally configured environment variables and never reveal or
+commit their values.
+
 ## Copyable Request for an Agent
 
 Attach this file to the agent and provide the requested change after this
