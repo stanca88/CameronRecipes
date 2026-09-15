@@ -672,15 +672,15 @@ export default function Home() {
                       const items = grocery.filter(i=>i.category===cat);
                       return (
                         <section key={cat} className="min-w-0 w-full overflow-hidden rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] shadow-[0_2px_10px_rgba(45,61,50,.04)]">
-                          <button type="button" onClick={()=>setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} className="flex w-full items-center justify-between border-b border-[#ebe6dc] bg-[#f6f1e7] px-4 py-3 text-left hover:bg-[#f1ead9]">
+                          <button type="button" onClick={()=>setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} className="flex w-full items-center justify-between border-b border-[#ebe6dc] bg-[#f6f1e7] px-3 py-1.5 text-left hover:bg-[#f1ead9] sm:px-4 sm:py-3">
                             <h3 className="font-sans text-sm font-bold uppercase tracking-wide text-[#45644e]">{cat}</h3>
-                            <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-md text-[#45644e] sm:size-8">{collapsed[cat]?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
+                            <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-md text-[#45644e] sm:size-8">{collapsed[cat]?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
                           </button>
-                          <div id={`cat-${cat}`} className={collapsed[cat]?"hidden p-2":"p-2"}>
+                          <div id={`cat-${cat}`} className={collapsed[cat]?"hidden p-1 sm:p-2":"p-1 sm:p-2"}>
                             {items.map(i=>{const key=`${i.name.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`;const done=syncedChecked.includes(key);const phrase=formatIngredientPhrase(i);return (
-                              <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-3.5 rounded-xl px-2 py-3 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
-                                <Checkbox className="mt-1.5 size-6 shrink-0 sm:mt-1 sm:size-4" checked={done} onCheckedChange={()=>toggleShoppingItemSync(key,!done)}/>
-                                <span className="min-w-0 flex-1 text-xl leading-relaxed text-[#1f3529] sm:text-base">{phrase}</span>
+                              <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-2 rounded-xl px-1 py-1.5 sm:gap-3.5 sm:px-2 sm:py-3 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
+                                <Checkbox className="mt-1 size-5 shrink-0 sm:mt-1 sm:size-4" checked={done} onCheckedChange={()=>toggleShoppingItemSync(key,!done)}/>
+                                <span className="min-w-0 flex-1 text-base leading-normal text-[#1f3529] sm:text-base sm:leading-relaxed">{phrase}</span>
                               </label>
                             )})}
                           </div>
