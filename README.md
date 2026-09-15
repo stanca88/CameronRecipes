@@ -4,11 +4,77 @@ A family recipe collection, weekly meal planner, and automatically generated sho
 
 ## Current site
 
-The working site is available at:
+The production site is available at:
 
-https://cameron-family-recipes.mariacam88.chatgpt.site
+https://cameron-recipes.vercel.app
 
 The `main` branch contains the source used by the live site. The GitHub Actions build runs automatically after every push so broken changes are caught before deployment.
+
+## Hosting and shared data
+
+- **Source code:** GitHub repository
+  [`stanca88/CameronRecipes`](https://github.com/stanca88/CameronRecipes).
+- **Hosting:** Vercel deploys the production application from the `main` branch.
+  A change is live only after the latest `main` commit has a successful Vercel
+  deployment.
+- **Database:** Supabase stores the shared recipes, weekly plans, shopping
+  lists, and meal history used by the family.
+- **Local cache:** The browser also stores local planning state under the
+  `cameron-family-table` local-storage key.
+
+The application expects these environment variables:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+```
+
+Configure their values in the local environment or Vercel project settings.
+Never commit keys, tokens, passwords, or `.env` files to the repository. Without
+the Supabase configuration, a local copy may run but will not show or update the
+shared production recipe collection.
+
+For a new local setup, copy [`.env.example`](.env.example) to `.env.local`.
+Database setup, table definitions, and the current access model are documented
+in [`docs/SUPABASE.md`](docs/SUPABASE.md), with executable schema SQL in
+[`supabase/schema.sql`](supabase/schema.sql).
+
+## Account access for maintainers and coding agents
+
+An agent can edit local files without logging in, but it needs authorized
+account access to clone private content, push a branch, open or merge a pull
+request, inspect Vercel, or administer Supabase.
+
+1. **GitHub:** Sign in to a GitHub account that has write access to
+   `stanca88/CameronRecipes`. When using GitHub CLI, the account owner should
+   authenticate the environment with `gh auth login`, then confirm access with
+   `gh auth status`. Clone with:
+
+   ```bash
+   gh repo clone stanca88/CameronRecipes
+   ```
+
+2. **Vercel:** Add the maintainer's own Vercel account to the CameronRecipes
+   project when deployment settings or logs need attention. Normal deployments
+   happen automatically after changes merge into `main`, so a Vercel login is
+   not required for routine code changes.
+3. **Supabase:** Add the maintainer's own Supabase account to the project only
+   when database tables, policies, or project settings must change. Normal
+   application development uses environment variables and does not require
+   sharing the owner's Supabase login.
+
+Never send an agent a password, personal access token, API key, session cookie,
+or recovery code in a prompt. The account owner should sign in through the
+official service or provide access through that service's collaborator/team
+settings. Use the minimum permissions needed and remove access when it is no
+longer required.
+
+## Product and agent documentation
+
+- [`PRODUCT_REQUIREMENTS.md`](PRODUCT_REQUIREMENTS.md) is the human-readable
+  source of truth for product behavior and experience.
+- [`AGENTS.md`](AGENTS.md) explains how another coding agent should update,
+  verify, and publish the site.
 
 ## Features
 
