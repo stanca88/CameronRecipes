@@ -34,6 +34,11 @@ Never commit keys, tokens, passwords, or `.env` files to the repository. Without
 the Supabase configuration, a local copy may run but will not show or update the
 shared production recipe collection.
 
+For a new local setup, copy [`.env.example`](.env.example) to `.env.local`.
+Database setup, table definitions, and the current access model are documented
+in [`docs/SUPABASE.md`](docs/SUPABASE.md), with executable schema SQL in
+[`supabase/schema.sql`](supabase/schema.sql).
+
 ## Account access for maintainers and coding agents
 
 An agent can edit local files without logging in, but it needs authorized

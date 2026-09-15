@@ -54,7 +54,8 @@ variables, or inspect deployment details unavailable from the GitHub status.
 Supabase dashboard access is needed only for schema, policy, or project-setting
 changes. Use a separately authorized collaborator account. For normal app
 development, use locally configured environment variables and never reveal or
-commit their values.
+commit their values. Read `docs/SUPABASE.md` and `supabase/schema.sql` before
+changing persistence or Supabase configuration.
 
 ## Copyable Request for an Agent
 
@@ -80,6 +81,9 @@ prompt:
 - `app/api/plans/`, `app/api/shopping/`, and `app/api/history/`: planning,
   shopping-list, and history API routes
 - `app/lib/supabase.ts`: Supabase browser client setup
+- `docs/SUPABASE.md`: database setup, access model, and schema guidance
+- `supabase/schema.sql`: executable source of truth for required Supabase tables
+- `.env.example`: safe environment-variable template without real credentials
 - `package.json`: supported development, build, lint, and test commands
 - `public/`: static images and other public assets
 
