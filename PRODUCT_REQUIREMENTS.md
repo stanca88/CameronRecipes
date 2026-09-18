@@ -157,8 +157,9 @@ The recipe detail view must be usable while cooking.
 
 - Provide a consistent green Back button whose text remains white on hover.
 - Show Ingredients and Directions as distinct sections.
+- Present Ingredients and Directions as a two-tab pivot in the recipe view.
 - Let users collapse and expand Ingredients.
-- Present direction steps in order with clear numbered green circles.
+- Present direction steps as compact checkable rows.
 - Let users tap a direction step to mark it complete or incomplete.
 - Show a completion message when every direction is checked.
 - Do not display the removed instructional sentence, "Tap a step when you
