@@ -368,6 +368,7 @@ export default function Home() {
   const [globalItemText,setGlobalItemText]=useState("");
   const [globalItemError,setGlobalItemError]=useState("");
   const [savingGlobalItem,setSavingGlobalItem]=useState(false);
+  const [globalSectionsCollapsed,setGlobalSectionsCollapsed]=useState<Record<"toGet"|"completed",boolean>>({toGet:false,completed:false});
   const [planSynced,setPlanSynced]=useState<Record<string,boolean>>({});
   const [recipesLoaded,setRecipesLoaded]=useState(false);
   const unsubscribeRef=useRef<(() => void)|null>(null);
@@ -767,17 +768,24 @@ export default function Home() {
                 ))}
               </div>
             </div> : <div role="button" tabIndex={0} onClick={()=>goAway("recipes")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();goAway("recipes")}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35"><ShoppingBasket className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Add meals to build your shopping list.</p></div>) : <div className="space-y-6">
-              <section className="rounded-2xl border border-[#bcd6c1] bg-[#eef5ed] p-4">
-                <h2 className="font-serif text-xl font-bold text-[#244832]">Global items</h2>
-                <p className="mt-1 text-sm text-[#5d6f61]">Shared staples and extra shopping tasks for the family.</p>
-                <div className="mt-4 flex gap-2"><Input value={globalItemText} onChange={event=>setGlobalItemText(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addGlobalItem()}}} placeholder="Add a task or item" aria-label="Global shopping task"/><Button type="button" onClick={addGlobalItem} disabled={!globalItemText.trim()||savingGlobalItem} className="shrink-0 bg-[#257F4B] text-white hover:bg-[#1f6b3f]">{savingGlobalItem?"Adding…":"Add a task"}</Button></div>
-                {globalItemError&&<p className="mt-3 rounded-xl bg-[#fbe9e2] p-3 text-sm text-[#9a402d]">{globalItemError}</p>}
-              </section>
-              {(["To get","Completed"] as const).map((heading,index)=>{
+                <div className="flex gap-2">
+                  <Input value={globalItemText} onChange={event=>setGlobalItemText(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addGlobalItem()}}} placeholder="Add a task or item" aria-label="Global shopping task"/>
+                  <Button type="button" onClick={addGlobalItem} disabled={!globalItemText.trim()||savingGlobalItem} className="shrink-0 bg-[#257F4B] text-white hover:bg-[#1f6b3f]">{savingGlobalItem?"Adding…":"Add a task"}</Button>
+                </div>
+                {globalItemError&&<p className="rounded-xl bg-[#fbe9e2] p-3 text-sm text-[#9a402d]">{globalItemError}</p>}
+                {(["To get","Completed"] as const).map((heading,index)=>{
+                  const sectionKey=index===0?"toGet":"completed";
                 const items=globalItems.filter(item=>index===0?!item.checked:item.checked);
-                return <section key={heading}><h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-bold text-[#45644e]"><span className="grid size-8 place-items-center rounded-full bg-[#e6efe7] text-[#257F4B]">{index===0?<Plus size={16}/>:<Check size={16}/>}</span>{heading}<span className="text-sm font-sans font-medium text-[#8a9187]">({items.length})</span></h2><div className="space-y-2">{items.map(item=><div key={item.id} className="flex items-center gap-3 rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] px-3 py-3 shadow-[0_2px_10px_rgba(45,61,50,.04)]"><Checkbox className="size-6 shrink-0 sm:size-5" checked={item.checked} onCheckedChange={()=>toggleGlobalItem(item)} aria-label={`${item.checked?"Uncheck":"Complete"} ${item.ingredient_name}`}/><span className={`min-w-0 flex-1 text-lg leading-relaxed ${item.checked?"text-[#8a9187] line-through":"text-[#1f3529]"}`}>{globalItemPhrase(item)}</span><button type="button" onClick={()=>removeGlobalItem(item)} aria-label={`Remove ${item.ingredient_name}`} className="grid size-9 shrink-0 place-items-center rounded-full text-[#78907c] hover:bg-[#fbe9e2] hover:text-[#a33f32]"><X size={16}/></button></div>)}{!items.length&&<p className="rounded-2xl border border-dashed border-[#cfc5b2] p-5 text-sm text-[#6d786f]">{index===0?"Everything is checked off.":"Completed items will appear here."}</p>}</div></section>
-              })}
-            </div>}
+                  const isCollapsed=globalSectionsCollapsed[sectionKey];
+                  return <section key={heading} className="overflow-hidden rounded-2xl border border-[#ddd4c3] bg-[#fffdf8]">
+                    <button type="button" onClick={()=>setGlobalSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full items-center justify-between bg-[#f6f1e7] px-4 py-3 text-left hover:bg-[#f1ead9]">
+                      <span className="flex items-center gap-2 font-serif text-xl font-bold text-[#45644e]"><span className="grid size-8 place-items-center rounded-full bg-[#e6efe7] text-[#257F4B]">{index===0?<Plus size={16}/>:<Check size={16}/>}</span>{heading}<span className="text-sm font-sans font-medium text-[#8a9187]">({items.length})</span></span>
+                      <span className="grid size-8 place-items-center text-[#45644e]" aria-hidden="true">{isCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
+                    </button>
+                    {!isCollapsed&&<div className="space-y-2 p-2">{items.map(item=><div key={item.id} className="flex items-center gap-3 rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] px-3 py-3 shadow-[0_2px_10px_rgba(45,61,50,.04)]"><Checkbox className="size-6 shrink-0 sm:size-5" checked={item.checked} onCheckedChange={()=>toggleGlobalItem(item)} aria-label={`${item.checked?"Uncheck":"Complete"} ${item.ingredient_name}`}/><span className={`min-w-0 flex-1 text-lg leading-relaxed ${item.checked?"text-[#8a9187] line-through":"text-[#1f3529]"}`}>{globalItemPhrase(item)}</span><button type="button" onClick={()=>removeGlobalItem(item)} aria-label={`Remove ${item.ingredient_name}`} className="grid size-9 shrink-0 place-items-center rounded-full text-[#78907c] hover:bg-[#fbe9e2] hover:text-[#a33f32]"><X size={16}/></button></div>)}{!items.length&&<p className="rounded-2xl border border-dashed border-[#cfc5b2] p-5 text-sm text-[#6d786f]">{index===0?"Everything is checked off.":"Completed items will appear here."}</p>}</div>}
+                  </section>
+                })}
+              </div>}
           </TabsContent>
 
         <TabsContent value="history"><div className="space-y-4">{history.map(week=><article key={week.id} className="rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-[#9a735e]">Meal plan</p><h3 className="font-serif text-xl font-bold">{week.label}</h3></div><span className="text-xs text-[#778078]">Saved {new Date(week.savedAt).toLocaleDateString()}</span></div><div className="grid gap-2 sm:grid-cols-2">{week.meals.map(meal=><div key={meal.id} className="flex items-center gap-3 rounded-xl bg-[#f3ede1] p-3"><span className="text-2xl">{meal.emoji}</span><div className="min-w-0"><p className="truncate font-medium">{meal.title}</p><p className="text-xs text-[#6d786f]">{meal.day?`${meal.day} · `:""}For {meal.people} people{meal.chef?` · Chef ${meal.chef}`:""}</p></div></div>)}</div></article>)}{!history.length&&<div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center"><HistoryIcon className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">No completed weeks yet.</p><p className="mt-1 text-sm text-[#6d786f]">A week will appear here automatically after it ends.</p></div>}</div></TabsContent>
