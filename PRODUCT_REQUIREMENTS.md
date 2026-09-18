@@ -159,6 +159,8 @@ The recipe detail view must be usable while cooking.
 - Show Ingredients and Directions as distinct sections.
 - Present Ingredients and Directions as a two-tab pivot in the recipe view.
 - Let users collapse and expand Ingredients.
+- Let users check off ingredients they have used while cooking, with checked
+  ingredients remaining visibly marked.
 - Present direction steps as compact checkable rows.
 - Let users tap a direction step to mark it complete or incomplete.
 - Show a completion message when every direction is checked.
