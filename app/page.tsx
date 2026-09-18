@@ -769,7 +769,7 @@ export default function Home() {
               </div>
             </div> : <div role="button" tabIndex={0} onClick={()=>goAway("recipes")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();goAway("recipes")}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35"><ShoppingBasket className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Add meals to build your shopping list.</p></div>) : <div className="space-y-6">
                 <div className="flex gap-2">
-                  <Input value={globalItemText} onChange={event=>setGlobalItemText(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addGlobalItem()}}} placeholder="Add a task or item" aria-label="Global shopping task"/>
+                  <Input value={globalItemText} onChange={event=>setGlobalItemText(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addGlobalItem()}}} placeholder="Add a task or item" aria-label="Global shopping task" className="bg-white"/>
                   <Button type="button" onClick={addGlobalItem} disabled={!globalItemText.trim()||savingGlobalItem} className="shrink-0 bg-[#257F4B] text-white hover:bg-[#1f6b3f]">{savingGlobalItem?"Adding…":"Add a task"}</Button>
                 </div>
                 {globalItemError&&<p className="rounded-xl bg-[#fbe9e2] p-3 text-sm text-[#9a402d]">{globalItemError}</p>}
