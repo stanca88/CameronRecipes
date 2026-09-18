@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { subscribeToShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan, subscribeToHistory, fetchHistory, saveHistoryWeek } from "@/app/lib/realtime";
+import { subscribeToShoppingList, subscribeToGlobalShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan, subscribeToHistory, fetchHistory, saveHistoryWeek } from "@/app/lib/realtime";
 
 type Ingredient = { name: string; amount: number; unit: string; category: string; hasQty?: boolean };
 type Recipe = { id: string; title: string; emoji: string; time: string; serves: number; author: string; ingredients: Ingredient[]; image?: string; directions?: string[]; sourceUrl?: string; sourceName?: string };
@@ -163,6 +163,18 @@ function pluralizeWord(word:string):string {
 function singularizeName(name:string):string {
   const [prefix,last]=splitLastWord(name);
   return prefix+singularizeWord(last);
+}
+
+function ingredientMatchKey(name:string) {
+  return singularizeName(name.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim());
+}
+
+function matchesGlobalIngredient(name:string, globalItems:ShoppingItem[]) {
+  const recipeKey = ingredientMatchKey(name);
+  return globalItems.some(item => {
+    const globalKey = ingredientMatchKey(item.ingredient_name);
+    return globalKey === recipeKey || (globalKey.length > 2 && recipeKey.length > 2 && (recipeKey.includes(globalKey) || globalKey.includes(recipeKey)));
+  });
 }
 
 function pluralizeName(name:string):string {
@@ -334,6 +346,7 @@ export default function Home() {
   const [activeRecipe,setActiveRecipe]=useState<Recipe|null>(null);
   const [recipeToDelete,setRecipeToDelete]=useState<Recipe|null>(null);
   const [ingredientsCollapsed,setIngredientsCollapsed]=useState(false);
+  const [recipeTab,setRecipeTab]=useState<"ingredients"|"directions">("ingredients");
   const [completedSteps,setCompletedSteps]=useState<number[]>([]);
   const [addMode,setAddMode]=useState<"url"|"review"|"manual">("url");
   const [importing,setImporting]=useState(false);
@@ -343,6 +356,7 @@ export default function Home() {
   const [collapsed,setCollapsed]=useState<Record<string,boolean>>({});
   const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("plan");
+  const [shopTab,setShopTab]=useState<"meals"|"global">("meals");
   const [preRecipesView,setPreRecipesView]=useState("plan");
   const [planPicking,setPlanPicking]=useState(false);
   const [planQuery,setPlanQuery]=useState("");
@@ -351,9 +365,15 @@ export default function Home() {
   useEffect(()=>{if(view!=="plan"){setPlanPicking(false);setPlanQuery("");setPlanSearchOpen(false)}},[view]);
   const [syncing,setSyncing]=useState(false);
   const [shoppingItems,setShoppingItems]=useState<ShoppingItem[]>([]);
+  const [globalItems,setGlobalItems]=useState<ShoppingItem[]>([]);
+  const [globalItemText,setGlobalItemText]=useState("");
+  const [globalItemError,setGlobalItemError]=useState("");
+  const [savingGlobalItem,setSavingGlobalItem]=useState(false);
+  const [globalSectionsCollapsed,setGlobalSectionsCollapsed]=useState<Record<"toGet"|"completed",boolean>>({toGet:false,completed:false});
   const [planSynced,setPlanSynced]=useState<Record<string,boolean>>({});
   const [recipesLoaded,setRecipesLoaded]=useState(false);
   const unsubscribeRef=useRef<(() => void)|null>(null);
+  const globalUnsubscribeRef=useRef<(() => void)|null>(null);
   const planUnsubscribeRef=useRef<(() => void)|null>(null);
   const historyUnsubscribeRef=useRef<(() => void)|null>(null);
   const activeWeekKey=weekKey(weekOffset);
@@ -439,7 +459,13 @@ export default function Home() {
     if(newUrl!==window.location.pathname+window.location.search)window.history.replaceState({},"",newUrl);
   },[loaded,sharedLinkApplied,view,activeRecipe,weekOffset]);
   const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)){const normalized=shared.map((r:any)=>({...r,sourceUrl:r.sourceUrl||r.source_url||undefined,sourceName:r.sourceName||r.source_name||undefined,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>normalizeIngredient(i)).filter((i:Ingredient|null):i is Ingredient=>i!==null):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string=>typeof d==="string"):[]}));setRecipes(normalized);setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>[key,{...plan,selected:plan.selected.filter(id=>normalized.some(recipe=>recipe.id===id)),servings:Object.fromEntries(Object.entries(plan.servings).filter(([id])=>normalized.some(recipe=>recipe.id===id))),checked:plan.checked,chefs:Object.fromEntries(Object.entries(plan.chefs||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id))),days:Object.fromEntries(Object.entries(plan.days||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id)))}])));setRecipesLoaded(true);return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
-  const syncNow=async()=>{setSyncing(true);try{const hasShared=await loadSharedRecipes();if(hasShared){const response=await fetch(`/api/shopping?week_key=${encodeURIComponent(activeWeekKey)}`);if(response.ok){const {items}=await response.json();if(Array.isArray(items))setShoppingItems(items)}}return hasShared}finally{setSyncing(false)}};
+  const syncGlobalItems=async()=>{
+    const response=await fetch("/api/shopping/global");
+    if(!response.ok) throw new Error("Failed to fetch global shopping items");
+    const {items}=await response.json();
+    if(Array.isArray(items)) setGlobalItems(items);
+  };
+  const syncNow=async()=>{setSyncing(true);try{const hasShared=await loadSharedRecipes();if(hasShared){const response=await fetch(`/api/shopping?week_key=${encodeURIComponent(activeWeekKey)}`);if(response.ok){const {items}=await response.json();if(Array.isArray(items))setShoppingItems(items)}await syncGlobalItems()}return hasShared}finally{setSyncing(false)}};
   const hardRefresh=async()=>{setSyncing(true);try{await syncNow()}finally{window.location.reload()}};
   useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
   const mergeRemoteHistory=(remoteWeeks:any[])=>{
@@ -476,18 +502,19 @@ export default function Home() {
     const items=new Map<string,Ingredient>();
     recipes.filter(r=>selected.includes(r.id)).forEach(r=>(Array.isArray(r.ingredients)?r.ingredients:[]).forEach(raw=>{
       const normalized=normalizeIngredient(raw); if(!normalized)return;
+      if(matchesGlobalIngredient(normalized.name,globalItems)) return;
       const i=/^c$/i.test(normalized.unit.trim())?{...normalized,amount:normalized.amount*8,unit:"oz"}:normalized;
       const canonicalName=singularizeName(i.name.trim());
       const key=`${canonicalName.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
       items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4)),hasQty:(old?.hasQty??false)||(i.hasQty??false)});
       })); return [...items.values()].sort((a,b)=>(GROCERY_CATEGORY_ORDER.indexOf(a.category)-GROCERY_CATEGORY_ORDER.indexOf(b.category))||a.name.localeCompare(b.name));
-  },[recipes,selected,servings]);
+  },[recipes,selected,servings,globalItems]);
   const categories=[...new Set(grocery.map(i=>i.category))];
   const syncedChecked=useMemo(()=>{const localSet=new Set(checked);const syncedKeys=new Set(shoppingItems.filter(s=>s.checked).map(s=>s.ingredient_key));return Array.from(new Set([...localSet,...syncedKeys]));},[checked,shoppingItems]);
   const grocerySignature=useMemo(()=>JSON.stringify(grocery.map(g=>[g.name.toLowerCase(),g.unit.toLowerCase(),g.category,Math.round(g.amount*100)])),[grocery]);
   const lastSavedGrocerySignatureRef=useRef<Record<string,string>>({});
   useEffect(()=>{
-    if(!loaded||grocery.length===0)return;
+    if(!loaded)return;
     if(lastSavedGrocerySignatureRef.current[activeWeekKey]===grocerySignature)return;
     (async()=>{
       try{
@@ -503,6 +530,12 @@ export default function Home() {
     unsubscribeRef.current=subscribeToShoppingList(activeWeekKey,(items:ShoppingItem[])=>setShoppingItems(items));
     return()=>{if(unsubscribeRef.current)unsubscribeRef.current()};
   },[activeWeekKey,loaded]);
+  useEffect(()=>{
+    if(!loaded)return;
+    if(globalUnsubscribeRef.current)globalUnsubscribeRef.current();
+    globalUnsubscribeRef.current=subscribeToGlobalShoppingList(setGlobalItems);
+    return()=>{if(globalUnsubscribeRef.current)globalUnsubscribeRef.current()};
+  },[loaded]);
   const planSignature=JSON.stringify(activePlan);
   useEffect(()=>{
     if(!loaded||!planSynced[activeWeekKey]||!recipesLoaded)return;
@@ -547,7 +580,7 @@ export default function Home() {
 
   const toggle=(id:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();const adding=!plan.selected.includes(id);return{...all,[activeWeekKey]:{...plan,selected:adding?[...plan.selected,id]:plan.selected.filter(recipeId=>recipeId!==id),servings:{...plan.servings,[id]:plan.servings[id]||4},checked:adding&&plan.selected.length===0?[]:plan.checked}}});
   const changeServings=(id:string,delta:number)=>setServings(v=>({...v,[id]:Math.max(1,(v[id]||4)+delta)}));
-  const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setIngredientsCollapsed(false);setCompletedSteps([]);window.scrollTo({top:0,behavior:"smooth"})};
+  const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setRecipeTab("ingredients");setIngredientsCollapsed(false);setCompletedSteps([]);window.scrollTo({top:0,behavior:"smooth"})};
   const toggleStepDone=(index:number)=>{setCompletedSteps(prev=>prev.includes(index)?prev.filter(i=>i!==index):[...prev,index])};
   const parsedIngredients=()=>ingredients.split("\n").filter(Boolean).map(parseIngredientLine);
   const resetAdd=()=>{setTitle("");setUrl("");setIngredients("");setDirections("");setImageUrl("");setSourceName("");setAddMode("url");setImportError("");setImporting(false);setEditingRecipeId(null)};
@@ -563,6 +596,46 @@ export default function Home() {
   const importRecipe=async()=>{if(!url.trim())return;setImporting(true);setImportError("");try{const response=await fetch("/api/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({url})});const data=await response.json();if(!response.ok)throw new Error(data.error||"We couldn't import that recipe.");setTitle(data.title||"");setIngredients((data.ingredients||[]).join("\n"));setDirections((data.directions||[]).join("\n"));setImageUrl(data.image||"");setSourceName(data.sourceName||"");setAddMode("review")}catch(error){setImportError(error instanceof Error?error.message:"We couldn't import that recipe.")}finally{setImporting(false)}};
   const deleteRecipe=async(id:string)=>{try{const response=await fetch(`/api/recipes/${id}`,{method:"DELETE"});if(!response.ok)throw new Error("Failed to delete recipe");await syncNow();setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>{const nextServings={...plan.servings};const nextChefs={...(plan.chefs||{})};const nextDays={...(plan.days||{})};delete nextServings[id];delete nextChefs[id];delete nextDays[id];return[key,{...plan,selected:plan.selected.filter(recipeId=>recipeId!==id),servings:nextServings,chefs:nextChefs,days:nextDays}]})));setActiveRecipe(null)}catch(error){console.error("Failed to delete recipe from database:",error)}};
   const toggleShoppingItemSync=async(itemKey:string,shouldCheck:boolean)=>{setChecked(v=>shouldCheck?[...v,itemKey]:v.filter(x=>x!==itemKey));setShoppingItems(items=>items.map(si=>si.ingredient_key===itemKey?{...si,checked:shouldCheck}:si));const shoppingItem=shoppingItems.find(si=>si.ingredient_key===itemKey);if(shoppingItem){try{await toggleShoppingItem(shoppingItem.id,shouldCheck)}catch(error){console.error("Failed to sync shopping item:",error)}}};
+  const addGlobalItem=async()=>{
+    const text=globalItemText.trim();
+    if(!text)return;
+    setSavingGlobalItem(true);setGlobalItemError("");
+    try{
+      const parsed=parseIngredientLine(text);
+      const response=await fetch("/api/shopping/global",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({ingredient_name:parsed.name,ingredient_amount:parsed.hasQty===false?0:parsed.amount,ingredient_unit:parsed.hasQty===false?"":parsed.unit,ingredient_key:ingredientMatchKey(parsed.name)})});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||"Failed to save global item");
+      setGlobalItems(items=>[...items.filter(item=>item.id!==data.id),data].sort((a,b)=>a.ingredient_name.localeCompare(b.ingredient_name)));
+      setGlobalItemText("");
+    }catch(error){setGlobalItemError(error instanceof Error?error.message:"Failed to save global item");console.error("Failed to save global shopping item:",error)}
+    finally{setSavingGlobalItem(false)}
+  };
+  const removeGlobalItem=async(item:ShoppingItem)=>{
+    try{
+      const response=await fetch(`/api/shopping/global?id=${encodeURIComponent(item.id)}`,{method:"DELETE"});
+      if(!response.ok)throw new Error("Failed to remove global item");
+      setGlobalItems(items=>items.filter(current=>current.id!==item.id));
+    }catch(error){setGlobalItemError(error instanceof Error?error.message:"Failed to remove global item");console.error("Failed to remove global shopping item:",error)}
+  };
+  const toggleGlobalItem=async(item:ShoppingItem)=>{
+    const checked=!item.checked;
+    setGlobalItems(items=>items.map(current=>current.id===item.id?{...current,checked}:current));
+    try{
+      const response=await toggleShoppingItem(item.id,checked);
+      if(response?.error)throw new Error(response.error);
+    }catch(error){
+      setGlobalItems(items=>items.map(current=>current.id===item.id?{...current,checked:!checked}:current));
+      setGlobalItemError(error instanceof Error?error.message:"Failed to update global item");
+      console.error("Failed to sync global shopping item:",error);
+    }
+  };
+  const globalItemPhrase=(item:ShoppingItem)=>formatIngredientPhrase({
+    name:item.ingredient_name,
+    amount:item.ingredient_amount||1,
+    unit:item.ingredient_unit,
+    category:"Global",
+    hasQty:Boolean(item.ingredient_amount||item.ingredient_unit),
+  });
 
   const nav=[{value:"plan",label:"Plan",icon:ChefHat},{value:"shop",label:"Shop",icon:ShoppingBasket}];
   const changeView=(v:string)=>{if(v!=="recipes"&&v!=="history")setPreRecipesView(v);setView(v)};
@@ -595,12 +668,17 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-10 grid gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-14">
-              <section className="min-w-0"><button onClick={()=>setIngredientsCollapsed(v=>!v)} aria-expanded={!ingredientsCollapsed} aria-controls="ingredients-list" className="flex w-full items-center justify-between gap-3 text-left"><h3 className="font-serif text-2xl font-bold">Ingredients</h3><span aria-label={ingredientsCollapsed?"Expand ingredients":"Collapse ingredients"} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#d8d5cd] bg-white text-[#257F4B] hover:bg-[#f1f4ef]">{ingredientsCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!ingredientsCollapsed&&<ul id="ingredients-list" className="mt-4 space-y-4">{(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,index)=>{const item=normalizeIngredient(raw);if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);const phrase=formatIngredientPhrase(item,amount);return <li key={index} className="flex items-start gap-3.5 text-xl leading-relaxed text-[#1f3529] sm:text-base"><span className="mt-3 size-2 shrink-0 rounded-full bg-[#526158]" aria-hidden="true"/><span className="min-w-0 flex-1">{phrase}</span></li>})}</ul>}</section>
-              <section className="min-w-0"><h3 className="font-serif text-2xl font-bold">Directions</h3>{activeRecipe.directions?.length?<>
-                <ol className="mt-5 space-y-4">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);return <li key={index}><button onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 items-start gap-4 rounded-2xl border border-transparent p-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35 ${done?"hover:bg-[#f5f8f4]":"hover:border-[#dbe4dc] hover:bg-[#f5f8f4]"}`}><span className={`grid size-10 shrink-0 place-items-center rounded-full text-lg font-semibold text-white sm:size-9 sm:text-base ${done?"bg-[#c7d3c8]":"bg-[#257F4B]"}`}>{done?<Check size={18}/>:index+1}</span><p className={`min-w-0 flex-1 pt-1 text-xl leading-relaxed text-[#1f3529] sm:text-base ${done?"text-[#8a9187] line-through":""}`}>{step}</p></button></li>})}</ol>
-                {completedSteps.length===activeRecipe.directions.length&&<div className="mt-6 rounded-2xl border border-[#bcd6c1] bg-[#eaf3ea] p-5 text-center"><Check className="mx-auto mb-2 text-[#257F4B]"/><p className="font-semibold text-[#244832]">All steps done — enjoy!</p></div>}
-              </>:<p className="mt-4 rounded-xl bg-[#f2ecdf] p-4 text-sm text-[#6d786f]">Directions weren’t included with this saved recipe. Re-import it from its recipe page to add them.</p>}</section>
+            <div className="mt-10">
+              <div className="mb-6 grid grid-cols-2 rounded-2xl bg-[#f2ecdf] p-1" role="tablist" aria-label="Recipe details">
+                <button type="button" role="tab" aria-selected={recipeTab==="ingredients"} onClick={()=>setRecipeTab("ingredients")} className={`rounded-xl px-4 py-3 text-sm font-bold transition ${recipeTab==="ingredients"?"bg-white text-[#257F4B] shadow-sm":"text-[#6d786f] hover:text-[#244832]"}`}>Ingredients</button>
+                <button type="button" role="tab" aria-selected={recipeTab==="directions"} onClick={()=>setRecipeTab("directions")} className={`rounded-xl px-4 py-3 text-sm font-bold transition ${recipeTab==="directions"?"bg-white text-[#257F4B] shadow-sm":"text-[#6d786f] hover:text-[#244832]"}`}>Directions</button>
+              </div>
+              {recipeTab==="ingredients"
+                ? <section className="min-w-0"><button onClick={()=>setIngredientsCollapsed(v=>!v)} aria-expanded={!ingredientsCollapsed} aria-controls="ingredients-list" className="flex w-full items-center justify-between gap-3 text-left"><h3 className="font-serif text-2xl font-bold">Ingredients</h3><span aria-label={ingredientsCollapsed?"Expand ingredients":"Collapse ingredients"} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#d8d5cd] bg-white text-[#257F4B] hover:bg-[#f1f4ef]">{ingredientsCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!ingredientsCollapsed&&<ul id="ingredients-list" className="mt-4 space-y-4">{(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,index)=>{const item=normalizeIngredient(raw);if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);const phrase=formatIngredientPhrase(item,amount);return <li key={index} className="flex items-start gap-3.5 text-xl leading-relaxed text-[#1f3529] sm:text-base"><span className="mt-3 size-2 shrink-0 rounded-full bg-[#526158]" aria-hidden="true"/><span className="min-w-0 flex-1">{phrase}</span></li>})}</ul>}</section>
+                : <section className="min-w-0"><h3 className="font-serif text-2xl font-bold">Directions</h3>{activeRecipe.directions?.length?<>
+                  <ol className="mt-5 space-y-2">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);return <li key={index}><button onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 items-center gap-3 rounded-2xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35 ${done?"border-[#bcd6c1] bg-[#eaf3ea]":"border-[#ddd4c3] bg-[#fffdf8] hover:border-[#bcd6c1] hover:bg-[#f5f8f4]"}`}><span className={`grid size-7 shrink-0 place-items-center rounded-full text-sm font-semibold text-white ${done?"bg-[#257F4B]":"border-2 border-[#9aa69c] bg-transparent text-transparent"}`}>{done&&<Check size={16}/>}</span><p className={`min-w-0 flex-1 text-lg leading-relaxed sm:text-base ${done?"text-[#78907c] line-through":"text-[#1f3529]"}`}>{step}</p></button></li>})}</ol>
+                  {completedSteps.length===activeRecipe.directions.length&&<div className="mt-6 rounded-2xl border border-[#bcd6c1] bg-[#eaf3ea] p-5 text-center"><Check className="mx-auto mb-2 text-[#257F4B]"/><p className="font-semibold text-[#244832]">All steps done — enjoy!</p></div>}
+                </>:<p className="mt-4 rounded-xl bg-[#f2ecdf] p-4 text-sm text-[#6d786f]">Directions weren’t included with this saved recipe. Re-import it from its recipe page to add them.</p>}</section>}
             </div>
           </div>
         </div>
@@ -662,7 +740,12 @@ export default function Home() {
             </div>
           : <div>{orderedSelectedRecipes.length?planRecipeGrid(orderedSelectedRecipes):null}{selected.length>0&&<Button type="button" variant="outline" onClick={()=>setPlanPicking(true)} className="mt-4 w-full rounded-2xl border-dashed border-[#c9d6cb] bg-transparent py-6 text-[#45644e] shadow-none hover:bg-[#f2f5f1] hover:text-[#244832]"><Plus size={18}/>Add another recipe</Button>}{selected.length===0&&<div role="button" tabIndex={0} onClick={()=>setPlanPicking(true)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPlanPicking(true)}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35"><ChefHat className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div>}</TabsContent>
 
-        <TabsContent value="shop">{grocery.length?
+        <TabsContent value="shop">
+          <div className="mb-6 grid grid-cols-2 rounded-2xl bg-[#f2ecdf] p-1" role="tablist" aria-label="Shopping list source">
+            <button type="button" role="tab" aria-selected={shopTab==="meals"} onClick={()=>setShopTab("meals")} className={`rounded-xl px-4 py-3 text-sm font-bold transition ${shopTab==="meals"?"bg-white text-[#257F4B] shadow-sm":"text-[#6d786f] hover:text-[#244832]"}`}>From meals</button>
+            <button type="button" role="tab" aria-selected={shopTab==="global"} onClick={()=>setShopTab("global")} className={`rounded-xl px-4 py-3 text-sm font-bold transition ${shopTab==="global"?"bg-white text-[#257F4B] shadow-sm":"text-[#6d786f] hover:text-[#244832]"}`}>Global</button>
+          </div>
+          {shopTab==="meals" ? (grocery.length?
             <div className="min-w-0">
               {/* Balanced columns implemented in JS to ensure top-aligned cards */}
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-4">
@@ -690,7 +773,25 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-            </div> : <div role="button" tabIndex={0} onClick={()=>goAway("recipes")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();goAway("recipes")}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35"><ShoppingBasket className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Add meals to build your shopping list.</p></div>}
+            </div> : <div role="button" tabIndex={0} onClick={()=>goAway("recipes")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();goAway("recipes")}}} className="cursor-pointer rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center transition hover:border-[#9fae9e] hover:bg-[#f2f5f1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35"><ShoppingBasket className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">Add meals to build your shopping list.</p></div>) : <div className="space-y-6">
+                <div className="flex gap-2">
+                  <Input value={globalItemText} onChange={event=>setGlobalItemText(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addGlobalItem()}}} placeholder="Add a task or item" aria-label="Global shopping task" className="bg-white"/>
+                  <Button type="button" onClick={addGlobalItem} disabled={!globalItemText.trim()||savingGlobalItem} className="shrink-0 bg-[#257F4B] text-white hover:bg-[#1f6b3f]">{savingGlobalItem?"Adding…":"Add a task"}</Button>
+                </div>
+                {globalItemError&&<p className="rounded-xl bg-[#fbe9e2] p-3 text-sm text-[#9a402d]">{globalItemError}</p>}
+                {(["To get","Completed"] as const).map((heading,index)=>{
+                  const sectionKey=index===0?"toGet":"completed";
+                const items=globalItems.filter(item=>index===0?!item.checked:item.checked);
+                  const isCollapsed=globalSectionsCollapsed[sectionKey];
+                  return <section key={heading} className="overflow-hidden rounded-2xl border border-[#ddd4c3] bg-[#fffdf8]">
+                    <button type="button" onClick={()=>setGlobalSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full items-center justify-between bg-[#f6f1e7] px-4 py-3 text-left hover:bg-[#f1ead9]">
+                      <span className="flex items-center gap-2 font-serif text-xl font-bold text-[#45644e]"><span className="grid size-8 place-items-center rounded-full bg-[#e6efe7] text-[#257F4B]">{index===0?<Plus size={16}/>:<Check size={16}/>}</span>{heading}<span className="text-sm font-sans font-medium text-[#8a9187]">({items.length})</span></span>
+                      <span className="grid size-8 place-items-center text-[#45644e]" aria-hidden="true">{isCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
+                    </button>
+                    {!isCollapsed&&<div className="space-y-2 p-2">{items.map(item=><div key={item.id} className="flex items-center gap-3 rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] px-3 py-3 shadow-[0_2px_10px_rgba(45,61,50,.04)]"><Checkbox className="size-6 shrink-0 sm:size-5" checked={item.checked} onCheckedChange={()=>toggleGlobalItem(item)} aria-label={`${item.checked?"Uncheck":"Complete"} ${item.ingredient_name}`}/><span className={`min-w-0 flex-1 text-lg leading-relaxed ${item.checked?"text-[#8a9187] line-through":"text-[#1f3529]"}`}>{globalItemPhrase(item)}</span><button type="button" onClick={()=>removeGlobalItem(item)} aria-label={`Remove ${item.ingredient_name}`} className="grid size-9 shrink-0 place-items-center rounded-full text-[#78907c] hover:bg-[#fbe9e2] hover:text-[#a33f32]"><X size={16}/></button></div>)}{!items.length&&<p className="rounded-2xl border border-dashed border-[#cfc5b2] p-5 text-sm text-[#6d786f]">{index===0?"Everything is checked off.":"Completed items will appear here."}</p>}</div>}
+                  </section>
+                })}
+              </div>}
           </TabsContent>
 
         <TabsContent value="history"><div className="space-y-4">{history.map(week=><article key={week.id} className="rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-[#9a735e]">Meal plan</p><h3 className="font-serif text-xl font-bold">{week.label}</h3></div><span className="text-xs text-[#778078]">Saved {new Date(week.savedAt).toLocaleDateString()}</span></div><div className="grid gap-2 sm:grid-cols-2">{week.meals.map(meal=><div key={meal.id} className="flex items-center gap-3 rounded-xl bg-[#f3ede1] p-3"><span className="text-2xl">{meal.emoji}</span><div className="min-w-0"><p className="truncate font-medium">{meal.title}</p><p className="text-xs text-[#6d786f]">{meal.day?`${meal.day} · `:""}For {meal.people} people{meal.chef?` · Chef ${meal.chef}`:""}</p></div></div>)}</div></article>)}{!history.length&&<div className="rounded-3xl border border-dashed border-[#cfc5b2] bg-transparent p-10 text-center"><HistoryIcon className="mx-auto mb-3 text-[#78907c]"/><p className="font-medium">No completed weeks yet.</p><p className="mt-1 text-sm text-[#6d786f]">A week will appear here automatically after it ends.</p></div>}</div></TabsContent>
