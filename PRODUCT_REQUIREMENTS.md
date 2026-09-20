@@ -103,6 +103,9 @@ The product must support recipes that do not come from a website.
 - Accept one direction per line.
 - Let users edit all saved recipe fields later.
 - Surface save failures rather than pretending the recipe was saved.
+- Present recipe creation and editing as a dedicated full-page experience,
+  rather than a modal dialog, with large labeled fields and touch-friendly
+  controls for mobile use.
 
 ### FR-4: Ingredient understanding and display
 
@@ -135,7 +138,10 @@ The product must support separate plans for this week and next week.
 - Show the number of selected meals in the Plan navigation.
 - Let users add a free-form date or day for each meal using the placeholder
   `Add date`.
+- Let users select a weekday (Sunday through Saturday) from a dropdown for
+  each planned meal.
 - Let users add the cook's name using the placeholder `Add chef name`.
+- Let users select Rory, Maria, Emma, or Maya as the cook for each planned meal.
 - Order planned recipe cards by recognized weekday after the day field is
   committed, without moving a card while the user is typing.
 - Let users open a planned recipe directly from its card.
