@@ -288,6 +288,11 @@ function categoryFor(name:string, unit="") {
   return "Pantry / Dry Goods";
 }
 
+function excludeFromShoppingList(name:string) {
+  const value=name.toLowerCase().trim();
+  return /\bwater\b/.test(value) && !/\bsparkling\s+water\b/.test(value);
+}
+
 function ingredientLineFor(item:Ingredient) {
   const amount=Math.round(item.amount*100)/100;
   const parts=[amount?String(amount):"",item.unit,item.name].filter(Boolean);
@@ -516,6 +521,7 @@ export default function Home() {
     const items=new Map<string,Ingredient>();
     recipes.filter(r=>selected.includes(r.id)).forEach(r=>(Array.isArray(r.ingredients)?r.ingredients:[]).forEach(raw=>{
       const normalized=normalizeIngredient(raw); if(!normalized)return;
+      if(excludeFromShoppingList(normalized.name)) return;
       if(matchesGlobalIngredient(normalized.name,globalItems)) return;
       const i=/^c$/i.test(normalized.unit.trim())?{...normalized,amount:normalized.amount*8,unit:"oz"}:normalized;
       const canonicalName=singularizeName(i.name.trim());

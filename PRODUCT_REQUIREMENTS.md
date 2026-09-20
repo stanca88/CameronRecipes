@@ -196,6 +196,8 @@ for the active week.
 
 - Combine matching ingredients across selected recipes.
 - Scale totals according to each meal's servings.
+- Keep water available in recipe ingredients without adding plain water to the
+  shopping list; sparkling water remains a shoppable ingredient.
 - Group items into practical grocery-aisle categories: Fruit, Vegetables, Meat &
   Seafood, Dairy & Eggs, Bakery, Pasta & Grains, Pantry / Dry Goods, Canned &
   Jarred Goods, Soups, Broths & Stocks, Condiments & Sauces, Spices &
