@@ -75,6 +75,10 @@ The product must provide a shared recipe collection.
 - Deleting a recipe must remove it from active plans and generated shopping
   lists, while preserving already archived history.
 - Allow recipes to be searched by recipe name or inferred cuisine.
+- Give each recipe a visible tag, using an inferred cuisine or `Family recipe`
+  when no tag is set.
+- Let users manually edit a recipe's tag and click a tag to filter the recipe
+  collection.
 - Show a link to the original recipe when a source URL is available.
 
 ### FR-2: Add recipes from a URL

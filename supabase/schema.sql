@@ -18,6 +18,7 @@ create table if not exists public.recipes (
   image text,
   source_url text,
   source_name text,
+  tag text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint recipes_ingredients_array check (jsonb_typeof(ingredients) = 'array'),
@@ -135,3 +136,6 @@ grant select, insert, update, delete on table
   public.shopping_list,
   public.meal_history
 to anon, authenticated;
+
+-- Existing projects should apply this non-destructive migration once:
+-- alter table public.recipes add column if not exists tag text;
