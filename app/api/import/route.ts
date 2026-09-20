@@ -170,6 +170,44 @@ function extractMicrodataRecipe(html: string) {
   return { title, ingredients, image, directions, sourceName };
 }
 
+function tagTextValues(block: string, tagName: string): string[] {
+  const pattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)</${tagName}>`, "gi");
+  return [...block.matchAll(pattern)]
+    .map(match => stripTags(match[1]))
+    .filter(Boolean);
+}
+
+// Martha Stewart's current recipe pages render a structured recipe section in
+// regular HTML rather than exposing Recipe JSON-LD. Keep this fallback narrow
+// to that site's stable data attributes so unrelated pages are not scraped
+// from arbitrary article text.
+function extractMarthaStewartRecipe(html: string) {
+  const titleMatch = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
+  const ingredientsStart = html.search(/<div\b[^>]*id=["']mm-recipes-structured-ingredients_[^"']*["'][^>]*>/i);
+  const stepsStart = html.search(/<div\b[^>]*id=["']mm-recipes-steps_[^"']*["'][^>]*>/i);
+  if (!titleMatch || ingredientsStart < 0 || stepsStart < 0 || stepsStart <= ingredientsStart) return null;
+
+  const ingredientsBlock = html.slice(ingredientsStart, stepsStart);
+  const ingredients = tagTextValues(ingredientsBlock, "li");
+  if (!ingredients.length) return null;
+
+  const stepsBlock = html.slice(stepsStart);
+  const directions = [...stepsBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map(match => tagTextValues(match[1], "p")[0] || "")
+    .filter(Boolean);
+  const image = /<img\b[^>]*class=["'][^"']*primary-image[^"']*["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]
+    || /<img\b[^>]*src=["']([^"']+)["'][^>]*class=["'][^"']*primary-image[^"']*["']/i.exec(html)?.[1]
+    || metaContent(html, "og:image");
+
+  return {
+    title: stripTags(titleMatch[1]),
+    ingredients,
+    image: decode(image),
+    directions,
+    sourceName: "Martha Stewart",
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json() as { url?: string };
@@ -208,6 +246,10 @@ export async function POST(request: Request) {
           directions: microdata.directions,
           sourceName: microdata.sourceName || url.hostname.replace(/^www\./, ""),
         });
+      }
+      if (/marthastewart\.com$/i.test(url.hostname)) {
+        const marthaStewart = extractMarthaStewartRecipe(html);
+        if (marthaStewart) return Response.json(marthaStewart);
       }
       return Response.json({
         error: sawLdJson
