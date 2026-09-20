@@ -76,12 +76,19 @@ function recipeImage(value:unknown):string {
   return "";
 }
 
-function instructionText(value:unknown):string[] {
+type ImportedDirection = { text: string; image?: string };
+
+function instructionText(value:unknown):(string | ImportedDirection)[] {
   if(typeof value==="string")return value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   if(Array.isArray(value))return value.flatMap(instructionText);
   if(!value||typeof value!=="object")return [];
   const object=value as JsonLd;
-  if(typeof object.text==="string")return [decode(object.text).replace(/<[^>]+>/g,"").trim()].filter(Boolean);
+  if(typeof object.text==="string"){
+    const text=decode(object.text).replace(/<[^>]+>/g,"").trim();
+    if (!text) return [];
+    const image=recipeImage(object.image);
+    return [image ? {text,image} : text];
+  }
   if(typeof object.name==="string"&&object.itemListElement)return [decode(object.name),...instructionText(object.itemListElement)];
   return instructionText(object.itemListElement);
 }
