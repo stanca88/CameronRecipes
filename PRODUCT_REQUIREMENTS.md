@@ -196,7 +196,7 @@ for the active week.
 
 - Combine matching ingredients across selected recipes.
 - Scale totals according to each meal's servings.
-- Group items into practical grocery-aisle categories: Produce, Meat &
+- Group items into practical grocery-aisle categories: Fruit, Vegetables, Meat &
   Seafood, Dairy & Eggs, Bakery, Pantry / Dry Goods, Canned & Jarred Goods,
   Soups, Broths & Stocks, Condiments & Sauces, Spices & Seasonings, Frozen,
   Snacks, Beverages, and Household / Other.
@@ -306,8 +306,8 @@ cache once and then removes itself from the URL.
 
 ### Week definition
 
-- A planning week runs Monday through Sunday.
-- Week records use the Monday date as a `YYYY-MM-DD` key.
+- A planning week runs Sunday through Saturday.
+- Week records use the Sunday date as a `YYYY-MM-DD` key.
 - The product exposes the current and following week for active planning.
 
 ## 8. Operational Requirements
