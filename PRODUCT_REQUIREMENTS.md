@@ -167,6 +167,8 @@ The recipe detail view must be usable while cooking.
 - Let users collapse and expand Ingredients.
 - Let users check off ingredients they have used while cooking, with checked
   ingredients remaining visibly marked.
+- Organize recipe ingredients into collapsible `To use` and `Used` sections,
+  moving ingredients between them when checked or unchecked.
 - Present direction steps as compact checkable rows.
 - Let users tap a direction step to mark it complete or incomplete.
 - Show a completion message when every direction is checked.
