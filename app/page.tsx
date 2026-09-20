@@ -30,7 +30,7 @@ const starterRecipes: Recipe[] = [
 
 function weekStart(offset = 0, date = new Date()) {
   const start = new Date(date); const day = start.getDay();
-  start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
+  start.setDate(start.getDate() - day);
   start.setDate(start.getDate() + offset * 7);
   start.setHours(0,0,0,0);
   return start;

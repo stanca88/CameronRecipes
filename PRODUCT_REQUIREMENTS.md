@@ -306,8 +306,8 @@ cache once and then removes itself from the URL.
 
 ### Week definition
 
-- A planning week runs Monday through Sunday.
-- Week records use the Monday date as a `YYYY-MM-DD` key.
+- A planning week runs Sunday through Saturday.
+- Week records use the Sunday date as a `YYYY-MM-DD` key.
 - The product exposes the current and following week for active planning.
 
 ## 8. Operational Requirements

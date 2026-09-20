@@ -50,7 +50,7 @@ different existing column types or constraints.
 | Table | Purpose | Record identity |
 |---|---|---|
 | `recipes` | Shared recipe content and source details | Text recipe ID |
-| `weekly_plans` | Recipes, servings, chefs, and dates for a Monday-based week | `YYYY-MM-DD` Monday key |
+| `weekly_plans` | Recipes, servings, chefs, and dates for a Sunday-based week | `YYYY-MM-DD` Sunday key |
 | `shopping_list` | Generated categorized ingredients and checked state | UUID plus unique week/item key |
 | `meal_history` | Archived completed weeks | Text history ID |
 
