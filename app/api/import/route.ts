@@ -193,8 +193,12 @@ function extractMarthaStewartRecipe(html: string) {
 
   const stepsBlock = html.slice(stepsStart);
   const directions = [...stepsBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)]
-    .map(match => tagTextValues(match[1], "p")[0] || "")
-    .filter(Boolean);
+    .map(match => {
+      const text = tagTextValues(match[1], "p")[0] || "";
+      const image = /<(?:img|source)\b[^>]*(?:data-src|src)=["']([^"']+)["']/i.exec(match[1])?.[1];
+      return text ? { text, image: image ? decode(image) : undefined } : null;
+    })
+    .filter((step): step is { text: string; image: string | undefined } => Boolean(step));
   const image = /<img\b[^>]*class=["'][^"']*primary-image[^"']*["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]
     || /<img\b[^>]*src=["']([^"']+)["'][^>]*class=["'][^"']*primary-image[^"']*["']/i.exec(html)?.[1]
     || metaContent(html, "og:image");
