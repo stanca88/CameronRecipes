@@ -197,11 +197,11 @@ for the active week.
 - Combine matching ingredients across selected recipes.
 - Scale totals according to each meal's servings.
 - Keep water available in recipe ingredients without adding plain water to the
-  shopping list; sparkling water remains a shoppable ingredient.
+ shopping list; sparkling water remains a shoppable ingredient.
 - Group items into practical grocery-aisle categories: Fruit, Vegetables, Meat &
-  Seafood, Dairy & Eggs, Bakery, Pasta & Grains, Pantry / Dry Goods, Canned &
-  Jarred Goods, Soups, Broths & Stocks, Condiments & Sauces, Spices &
-  Seasonings, Frozen, Snacks, Beverages, and Household / Other.
+ Seafood, Dairy & Eggs, Bakery, Pasta & Grains, Pantry / Dry Goods, Canned &
+ Jarred Goods, Soups, Broths & Stocks, Condiments & Sauces, Spices &
+ Seasonings, Frozen, Snacks, Beverages, and Household / Other.
 - Combine equivalent ingredient wording, including reordered quantity
   descriptors such as `1 clove garlic` and `1 garlic clove`, into one item.
 - Display category cards in balanced responsive columns: one on phones, two on

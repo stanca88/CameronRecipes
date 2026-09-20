@@ -76,12 +76,19 @@ function recipeImage(value:unknown):string {
   return "";
 }
 
-function instructionText(value:unknown):string[] {
+type ImportedDirection = { text: string; image?: string };
+
+function instructionText(value:unknown):(string | ImportedDirection)[] {
   if(typeof value==="string")return value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   if(Array.isArray(value))return value.flatMap(instructionText);
   if(!value||typeof value!=="object")return [];
   const object=value as JsonLd;
-  if(typeof object.text==="string")return [decode(object.text).replace(/<[^>]+>/g,"").trim()].filter(Boolean);
+  if(typeof object.text==="string"){
+    const text=decode(object.text).replace(/<[^>]+>/g,"").trim();
+    if (!text) return [];
+    const image=recipeImage(object.image);
+    return [image ? {text,image} : text];
+  }
   if(typeof object.name==="string"&&object.itemListElement)return [decode(object.name),...instructionText(object.itemListElement)];
   return instructionText(object.itemListElement);
 }
@@ -170,6 +177,48 @@ function extractMicrodataRecipe(html: string) {
   return { title, ingredients, image, directions, sourceName };
 }
 
+function tagTextValues(block: string, tagName: string): string[] {
+  const pattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)</${tagName}>`, "gi");
+  return [...block.matchAll(pattern)]
+    .map(match => stripTags(match[1]))
+    .filter(Boolean);
+}
+
+// Martha Stewart's current recipe pages render a structured recipe section in
+// regular HTML rather than exposing Recipe JSON-LD. Keep this fallback narrow
+// to that site's stable data attributes so unrelated pages are not scraped
+// from arbitrary article text.
+function extractMarthaStewartRecipe(html: string) {
+  const titleMatch = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
+  const ingredientsStart = html.search(/<div\b[^>]*id=["']mm-recipes-structured-ingredients_[^"']*["'][^>]*>/i);
+  const stepsStart = html.search(/<div\b[^>]*id=["']mm-recipes-steps_[^"']*["'][^>]*>/i);
+  if (!titleMatch || ingredientsStart < 0 || stepsStart < 0 || stepsStart <= ingredientsStart) return null;
+
+  const ingredientsBlock = html.slice(ingredientsStart, stepsStart);
+  const ingredients = tagTextValues(ingredientsBlock, "li");
+  if (!ingredients.length) return null;
+
+  const stepsBlock = html.slice(stepsStart);
+  const directions = [...stepsBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map(match => {
+      const text = tagTextValues(match[1], "p")[0] || "";
+      const image = /<(?:img|source)\b[^>]*(?:data-src|src)=["']([^"']+)["']/i.exec(match[1])?.[1];
+      return text ? { text, image: image ? decode(image) : undefined } : null;
+    })
+    .filter((step): step is { text: string; image: string | undefined } => Boolean(step));
+  const image = /<img\b[^>]*class=["'][^"']*primary-image[^"']*["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]
+    || /<img\b[^>]*src=["']([^"']+)["'][^>]*class=["'][^"']*primary-image[^"']*["']/i.exec(html)?.[1]
+    || metaContent(html, "og:image");
+
+  return {
+    title: stripTags(titleMatch[1]),
+    ingredients,
+    image: decode(image),
+    directions,
+    sourceName: "Martha Stewart",
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json() as { url?: string };
@@ -208,6 +257,10 @@ export async function POST(request: Request) {
           directions: microdata.directions,
           sourceName: microdata.sourceName || url.hostname.replace(/^www\./, ""),
         });
+      }
+      if (/marthastewart\.com$/i.test(url.hostname)) {
+        const marthaStewart = extractMarthaStewartRecipe(html);
+        if (marthaStewart) return Response.json(marthaStewart);
       }
       return Response.json({
         error: sawLdJson
