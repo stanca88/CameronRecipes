@@ -21,11 +21,11 @@ type ShoppingItem = { id: string; ingredient_key: string; ingredient_name: strin
 
 const starterRecipes: Recipe[] = [
   {id:"roasted-veg-bowl",title:"Roasted Vegetable Grain Bowl",emoji:"🥗",time:"35 min",serves:4,author:"Maria",image:"/veg-bowl.jpg",ingredients:[
-    {name:"quinoa",amount:1,unit:"cup",category:"Pantry"},{name:"sweet potato",amount:2,unit:"",category:"Produce"},{name:"chickpeas",amount:1,unit:"can",category:"Pantry"},{name:"spinach",amount:3,unit:"cups",category:"Produce"},{name:"feta",amount:4,unit:"oz",category:"Dairy"},{name:"olive oil",amount:2,unit:"tbsp",category:"Pantry"}],directions:["Roast cubed sweet potato and chickpeas at 425°F until golden.","Cook quinoa per package instructions.","Toss quinoa with roasted veg, spinach, feta, olive oil, lemon, salt, and pepper."]},
+    {name:"quinoa",amount:1,unit:"cup",category:"Pantry"},{name:"sweet potato",amount:2,unit:"",category:"Vegetables"},{name:"chickpeas",amount:1,unit:"can",category:"Pantry"},{name:"spinach",amount:3,unit:"cups",category:"Vegetables"},{name:"feta",amount:4,unit:"oz",category:"Dairy"},{name:"olive oil",amount:2,unit:"tbsp",category:"Pantry"}],directions:["Roast cubed sweet potato and chickpeas at 425°F until golden.","Cook quinoa per package instructions.","Toss quinoa with roasted veg, spinach, feta, olive oil, lemon, salt, and pepper."]},
   {id:"lemon-herb-chicken",title:"Lemon Herb Chicken",emoji:"🍗",time:"40 min",serves:4,author:"Dad",image:"/lemon-chicken.jpg",ingredients:[
-    {name:"chicken breasts",amount:4,unit:"",category:"Meat"},{name:"lemons",amount:2,unit:"",category:"Produce"},{name:"garlic cloves",amount:3,unit:"",category:"Produce"},{name:"olive oil",amount:2,unit:"tbsp",category:"Pantry"},{name:"rosemary",amount:1,unit:"tsp",category:"Pantry"}],directions:["Marinate chicken with lemon, garlic, olive oil, rosemary, salt, and pepper.","Roast at 425°F for 25–30 minutes until cooked through.","Rest 5 minutes before serving."]},
+    {name:"chicken breasts",amount:4,unit:"",category:"Meat"},{name:"lemons",amount:2,unit:"",category:"Fruit"},{name:"garlic cloves",amount:3,unit:"",category:"Vegetables"},{name:"olive oil",amount:2,unit:"tbsp",category:"Pantry"},{name:"rosemary",amount:1,unit:"tsp",category:"Pantry"}],directions:["Marinate chicken with lemon, garlic, olive oil, rosemary, salt, and pepper.","Roast at 425°F for 25–30 minutes until cooked through.","Rest 5 minutes before serving."]},
   {id:"beef-stew",title:"Hearty Beef Stew",emoji:"🥘",time:"2 hr",serves:6,author:"Dad",image:"/beef-stew.jpg",ingredients:[
-    {name:"beef chuck",amount:2,unit:"lb",category:"Meat"},{name:"carrots",amount:3,unit:"",category:"Produce"},{name:"potatoes",amount:3,unit:"",category:"Produce"},{name:"onion",amount:1,unit:"",category:"Produce"},{name:"beef broth",amount:4,unit:"cups",category:"Pantry"},{name:"tomato paste",amount:2,unit:"tbsp",category:"Pantry"}],directions:["Brown beef in batches, set aside.","Sauté onion, add carrots and potato, then return beef to pot.","Add broth and tomato paste, simmer covered 1.5–2 hours until beef is tender."]}
+    {name:"beef chuck",amount:2,unit:"lb",category:"Meat"},{name:"carrots",amount:3,unit:"",category:"Vegetables"},{name:"potatoes",amount:3,unit:"",category:"Vegetables"},{name:"onion",amount:1,unit:"",category:"Vegetables"},{name:"beef broth",amount:4,unit:"cups",category:"Pantry"},{name:"tomato paste",amount:2,unit:"tbsp",category:"Pantry"}],directions:["Brown beef in batches, set aside.","Sauté onion, add carrots and potato, then return beef to pot.","Add broth and tomato paste, simmer covered 1.5–2 hours until beef is tender."]}
 ];
 
 function weekStart(offset = 0, date = new Date()) {
@@ -250,7 +250,7 @@ function cleanIngredientName(rawName:string):string {
 
 const GROCERY_CATEGORY_ORDER=[
   "Fruit",
-  "Produce",
+  "Vegetables",
   "Meat & Seafood",
   "Dairy & Eggs",
   "Bakery",
@@ -279,8 +279,8 @@ function categoryFor(name:string, unit="") {
   if(/\b(coffee|tea|juice|soda|water|lemonade|wine|beer|drink|beverage)\b/.test(value)) return "Beverages";
   if(/\b(foil|plastic wrap|paper towel|napkin|detergent|cleaner|trash bag|parchment)\b/.test(value)) return "Household / Other";
   if(/\b(quinoa|rice|pasta|noodle|grain|oat|flour|sugar|bean|lentil|couscous|cornmeal|breadcrumb)\b/.test(value)) return "Pantry / Dry Goods";
-  if(/\b(apple|banana|berries|berry|blueberr(?:y|ies)|blackberr(?:y|ies)|raspberr(?:y|ies)|strawberr(?:y|ies)|cherr(?:y|ies)|grape|orange|mandarin|tangerine|grapefruit|peach|nectarine|plum|pear|mango|pineapple|watermelon|cantaloupe|melon|kiwi|papaya|coconut|pomegranate|fig|date|raisin|cranberr(?:y|ies))\b/.test(value)) return "Fruit";
-  if(/\b(tomato|onion|garlic|pepper|lettuce|lemon|lime|potato|cucumber|carrot|celery|spinach|kale|avocado|mushroom|broccoli|zucchini|herb|parsley|cilantro|mint|scallion|ginger)\b/.test(value)) return "Produce";
+  if(/\b(apple|banana|berries|berry|blueberr(?:y|ies)|blackberr(?:y|ies)|raspberr(?:y|ies)|strawberr(?:y|ies)|cherr(?:y|ies)|grape|orange|mandarin|tangerine|grapefruit|lemon|lime|peach|nectarine|plum|pear|mango|pineapple|watermelon|cantaloupe|melon|kiwi|papaya|coconut|pomegranate|fig|date|raisin|cranberr(?:y|ies))\b/.test(value)) return "Fruit";
+  if(/\b(tomato|onion|garlic|pepper|lettuce|potato|cucumber|carrot|celery|spinach|kale|avocado|mushroom|broccoli|zucchini|herb|parsley|cilantro|mint|scallion|ginger)\b/.test(value)) return "Vegetables";
   return "Pantry / Dry Goods";
 }
 

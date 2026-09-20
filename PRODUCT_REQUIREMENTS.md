@@ -196,7 +196,7 @@ for the active week.
 
 - Combine matching ingredients across selected recipes.
 - Scale totals according to each meal's servings.
-- Group items into practical grocery-aisle categories: Fruit, Produce, Meat &
+- Group items into practical grocery-aisle categories: Fruit, Vegetables, Meat &
   Seafood, Dairy & Eggs, Bakery, Pantry / Dry Goods, Canned & Jarred Goods,
   Soups, Broths & Stocks, Condiments & Sauces, Spices & Seasonings, Frozen,
   Snacks, Beverages, and Household / Other.
