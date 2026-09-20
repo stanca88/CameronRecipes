@@ -249,6 +249,7 @@ function cleanIngredientName(rawName:string):string {
 }
 
 const GROCERY_CATEGORY_ORDER=[
+  "Fruit",
   "Produce",
   "Meat & Seafood",
   "Dairy & Eggs",
@@ -278,7 +279,8 @@ function categoryFor(name:string, unit="") {
   if(/\b(coffee|tea|juice|soda|water|lemonade|wine|beer|drink|beverage)\b/.test(value)) return "Beverages";
   if(/\b(foil|plastic wrap|paper towel|napkin|detergent|cleaner|trash bag|parchment)\b/.test(value)) return "Household / Other";
   if(/\b(quinoa|rice|pasta|noodle|grain|oat|flour|sugar|bean|lentil|couscous|cornmeal|breadcrumb)\b/.test(value)) return "Pantry / Dry Goods";
-  if(/\b(tomato|onion|garlic|pepper|lettuce|lemon|lime|potato|cucumber|apple|carrot|celery|spinach|kale|avocado|mushroom|broccoli|zucchini|herb|parsley|cilantro|mint|scallion|ginger)\b/.test(value)) return "Produce";
+  if(/\b(apple|banana|berries|berry|blueberr(?:y|ies)|blackberr(?:y|ies)|raspberr(?:y|ies)|strawberr(?:y|ies)|cherr(?:y|ies)|grape|orange|mandarin|tangerine|grapefruit|peach|nectarine|plum|pear|mango|pineapple|watermelon|cantaloupe|melon|kiwi|papaya|coconut|pomegranate|fig|date|raisin|cranberr(?:y|ies))\b/.test(value)) return "Fruit";
+  if(/\b(tomato|onion|garlic|pepper|lettuce|lemon|lime|potato|cucumber|carrot|celery|spinach|kale|avocado|mushroom|broccoli|zucchini|herb|parsley|cilantro|mint|scallion|ginger)\b/.test(value)) return "Produce";
   return "Pantry / Dry Goods";
 }
 
