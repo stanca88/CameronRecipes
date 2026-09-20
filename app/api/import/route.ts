@@ -76,12 +76,19 @@ function recipeImage(value:unknown):string {
   return "";
 }
 
-function instructionText(value:unknown):string[] {
+type ImportedDirection = { text: string; image?: string };
+
+function instructionText(value:unknown):(string | ImportedDirection)[] {
   if(typeof value==="string")return value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   if(Array.isArray(value))return value.flatMap(instructionText);
   if(!value||typeof value!=="object")return [];
   const object=value as JsonLd;
-  if(typeof object.text==="string")return [decode(object.text).replace(/<[^>]+>/g,"").trim()].filter(Boolean);
+  if(typeof object.text==="string"){
+    const text=decode(object.text).replace(/<[^>]+>/g,"").trim();
+    if (!text) return [];
+    const image=recipeImage(object.image);
+    return [image ? {text,image} : text];
+  }
   if(typeof object.name==="string"&&object.itemListElement)return [decode(object.name),...instructionText(object.itemListElement)];
   return instructionText(object.itemListElement);
 }
@@ -193,8 +200,12 @@ function extractMarthaStewartRecipe(html: string) {
 
   const stepsBlock = html.slice(stepsStart);
   const directions = [...stepsBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)]
-    .map(match => tagTextValues(match[1], "p")[0] || "")
-    .filter(Boolean);
+    .map(match => {
+      const text = tagTextValues(match[1], "p")[0] || "";
+      const image = /<(?:img|source)\b[^>]*(?:data-src|src)=["']([^"']+)["']/i.exec(match[1])?.[1];
+      return text ? { text, image: image ? decode(image) : undefined } : null;
+    })
+    .filter((step): step is { text: string; image: string | undefined } => Boolean(step));
   const image = /<img\b[^>]*class=["'][^"']*primary-image[^"']*["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]
     || /<img\b[^>]*src=["']([^"']+)["'][^>]*class=["'][^"']*primary-image[^"']*["']/i.exec(html)?.[1]
     || metaContent(html, "og:image");
