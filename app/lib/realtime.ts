@@ -4,8 +4,26 @@ export function subscribeToShoppingList(
   onUpdate: (items: any[]) => void
 ) {
   const interval = setInterval(() => {
-    fetchShoppingList(weekKey).then(onUpdate);
+    fetchShoppingList(weekKey)
+      .then(onUpdate)
+      .catch((error) => {
+        console.error("Failed to poll shopping list:", error);
+      });
   }, 2000);
+
+  return () => clearInterval(interval);
+}
+
+export function subscribeToGlobalShoppingList(onUpdate: (items: any[]) => void) {
+  const interval = setInterval(async () => {
+    try {
+      const response = await fetch("/api/shopping/global");
+      const { items } = await response.json();
+      if (response.ok && Array.isArray(items)) onUpdate(items);
+    } catch (e) {
+      console.error("Failed to poll global shopping items:", e);
+    }
+  }, 5000);
 
   return () => clearInterval(interval);
 }
@@ -30,7 +48,12 @@ export function subscribeToWeeklyPlan(
 }
 
 export async function fetchShoppingList(weekKey: string) {
-  const response = await fetch(`/api/shopping?week_key=${encodeURIComponent(weekKey)}`);
+  const url = new URL("/api/shopping", window.location.origin);
+  url.searchParams.set("week_key", weekKey);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Shopping list request failed with status ${response.status}`);
+  }
   const { items } = await response.json();
   return items || [];
 }

@@ -75,6 +75,10 @@ The product must provide a shared recipe collection.
 - Deleting a recipe must remove it from active plans and generated shopping
   lists, while preserving already archived history.
 - Allow recipes to be searched by recipe name or inferred cuisine.
+- Give each recipe a visible tag, using an inferred cuisine or `Family recipe`
+  when no tag is set.
+- Let users manually edit a recipe's tag and click a tag to filter the recipe
+  collection.
 - Show a link to the original recipe when a source URL is available.
 
 ### FR-2: Add recipes from a URL
@@ -103,6 +107,9 @@ The product must support recipes that do not come from a website.
 - Accept one direction per line.
 - Let users edit all saved recipe fields later.
 - Surface save failures rather than pretending the recipe was saved.
+- Present recipe creation and editing as a dedicated full-page experience,
+  rather than a modal dialog, with large labeled fields and touch-friendly
+  controls for mobile use.
 
 ### FR-4: Ingredient understanding and display
 
@@ -135,7 +142,10 @@ The product must support separate plans for this week and next week.
 - Show the number of selected meals in the Plan navigation.
 - Let users add a free-form date or day for each meal using the placeholder
   `Add date`.
+- Let users select a weekday (Sunday through Saturday) from a dropdown for
+  each planned meal.
 - Let users add the cook's name using the placeholder `Add chef name`.
+- Let users select Rory, Maria, Emma, or Maya as the cook for each planned meal.
 - Order planned recipe cards by recognized weekday after the day field is
   committed, without moving a card while the user is typing.
 - Let users open a planned recipe directly from its card.
@@ -157,8 +167,13 @@ The recipe detail view must be usable while cooking.
 
 - Provide a consistent green Back button whose text remains white on hover.
 - Show Ingredients and Directions as distinct sections.
+- Present Ingredients and Directions as a two-tab pivot in the recipe view.
 - Let users collapse and expand Ingredients.
-- Present direction steps in order with clear numbered green circles.
+- Let users check off ingredients they have used while cooking, with checked
+  ingredients remaining visibly marked.
+- Organize recipe ingredients into collapsible `To use` and `Used` sections,
+  moving ingredients between them when checked or unchecked.
+- Present direction steps as compact checkable rows.
 - Let users tap a direction step to mark it complete or incomplete.
 - Show a completion message when every direction is checked.
 - Do not display the removed instructional sentence, "Tap a step when you
@@ -169,12 +184,36 @@ The recipe detail view must be usable while cooking.
 The product must automatically generate a shopping list from recipes selected
 for the active week.
 
+- Let users add and remove shared global items for ingredients they already
+  keep on hand.
+- Exclude a generated recipe ingredient from the weekly categories when it
+  matches a global item, while keeping the global item visible in its own
+  section.
+- Separate the shopping view into `From meals` and `Global` tabs.
+- In `Global`, separate items to get from completed items and let users move
+  an item between those sections by checking or unchecking it.
+- Let users add free-form global shopping tasks.
+
 - Combine matching ingredients across selected recipes.
 - Scale totals according to each meal's servings.
-- Group items into practical grocery-aisle categories: Produce, Meat &
-  Seafood, Dairy & Eggs, Bakery, Pantry / Dry Goods, Canned & Jarred Goods,
-  Soups, Broths & Stocks, Condiments & Sauces, Spices & Seasonings, Frozen,
-  Snacks, Beverages, and Household / Other.
+- Treat canned tomato products, including crushed tomatoes, as Canned & Jarred
+  Goods rather than Vegetables.
+- Treat onion powder and garlic powder as Spices & Seasonings rather than dry
+  goods.
+- Treat fresh lemon juice as Vegetables because it requires fresh lemons.
+- Combine salt variants such as kosher salt and sea salt into one `salt`
+  shopping item, and combine pepper variants into one `pepper` item. Leave
+  descriptors such as freshly ground or coarsely ground for recipe
+  instructions rather than showing them in shopping-list ingredient names.
+- Apply the same shopping-list normalization to preparation descriptors such
+  as chopped, minced, diced, sliced, shredded, grated, or peeled, while
+  keeping the original ingredient wording in the recipe.
+- Keep water available in recipe ingredients without adding plain water to the
+ shopping list; sparkling water remains a shoppable ingredient.
+- Group items into practical grocery-aisle categories: Fruit, Vegetables, Meat &
+ Seafood, Dairy & Eggs, Bakery, Pantry / Dry Goods, Canned & Jarred Goods,
+ Soups, Broths & Stocks, Condiments & Sauces, Spices &
+ Seasonings, Frozen, Snacks, Beverages, and Household / Other.
 - Combine equivalent ingredient wording, including reordered quantity
   descriptors such as `1 clove garlic` and `1 garlic clove`, into one item.
 - Display category cards in balanced responsive columns: one on phones, two on
@@ -281,8 +320,8 @@ cache once and then removes itself from the URL.
 
 ### Week definition
 
-- A planning week runs Monday through Sunday.
-- Week records use the Monday date as a `YYYY-MM-DD` key.
+- A planning week runs Sunday through Saturday.
+- Week records use the Sunday date as a `YYYY-MM-DD` key.
 - The product exposes the current and following week for active planning.
 
 ## 8. Operational Requirements
