@@ -208,8 +208,8 @@ for the active week.
 - Keep water available in recipe ingredients without adding plain water to the
  shopping list; sparkling water remains a shoppable ingredient.
 - Group items into practical grocery-aisle categories: Fruit, Vegetables, Meat &
- Seafood, Dairy & Eggs, Bakery, Pasta & Grains, Pantry / Dry Goods, Canned &
- Jarred Goods, Soups, Broths & Stocks, Condiments & Sauces, Spices &
+ Seafood, Dairy & Eggs, Bakery, Pantry / Dry Goods, Canned & Jarred Goods,
+ Soups, Broths & Stocks, Condiments & Sauces, Spices &
  Seasonings, Frozen, Snacks, Beverages, and Household / Other.
 - Combine equivalent ingredient wording, including reordered quantity
   descriptors such as `1 clove garlic` and `1 garlic clove`, into one item.
