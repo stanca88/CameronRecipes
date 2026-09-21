@@ -196,6 +196,8 @@ for the active week.
 
 - Combine matching ingredients across selected recipes.
 - Scale totals according to each meal's servings.
+- Treat canned tomato products, including crushed tomatoes, as Canned & Jarred
+  Goods rather than Vegetables.
 - Keep water available in recipe ingredients without adding plain water to the
  shopping list; sparkling water remains a shoppable ingredient.
 - Group items into practical grocery-aisle categories: Fruit, Vegetables, Meat &

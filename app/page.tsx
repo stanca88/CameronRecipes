@@ -281,7 +281,7 @@ function categoryFor(name:string, unit="") {
   if(/\b(chicken|beef|turkey|pork|lamb|sausage|bacon|ham|salmon|shrimp|prawn|fish|tuna|cod|meat)\b/.test(value)) return "Meat & Seafood";
   if(/\b(milk|cheese|feta|cream|yogurt|butter|egg|eggs|sour cream|cottage cheese)\b/.test(value)) return "Dairy & Eggs";
   if(/\b(bread|tortilla|bun|roll|pita|bagel|brioche|naan)\b/.test(value)) return "Bakery";
-  if(/\b(canned|jarred|tomato paste|tomato sauce|marinara|canned tomatoes|pickles|olives|jam|jelly)\b/.test(value)||/^(can|jar)$/.test(unit)) return "Canned & Jarred Goods";
+  if(/\b(canned|jarred|tomato paste|tomato sauce|marinara|canned tomatoes|crushed tomatoes|diced tomatoes|whole tomatoes|pickles|olives|jam|jelly)\b/.test(value)||/^(can|jar)$/.test(unit)) return "Canned & Jarred Goods";
   if(/\b(mayo|mayonnaise|mustard|ketchup|soy sauce|hot sauce|salsa|vinegar|dressing|olive oil|vegetable oil|sesame oil)\b/.test(value)) return "Condiments & Sauces";
   if(/\b(salt|pepper|cumin|paprika|cinnamon|oregano|thyme|rosemary|basil|seasoning|spice|nutmeg|chili powder|curry)\b/.test(value)) return "Spices & Seasonings";
   if(/\b(frozen|ice cream|sorbet)\b/.test(value)) return "Frozen";
