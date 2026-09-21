@@ -263,6 +263,7 @@ const GROCERY_CATEGORY_ORDER=[
   "Meat & Seafood",
   "Dairy & Eggs",
   "Bakery",
+  "Pasta & Grains",
   "Pantry / Dry Goods",
   "Canned & Jarred Goods",
   "Soups, Broths & Stocks",
