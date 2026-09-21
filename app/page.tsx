@@ -381,7 +381,7 @@ function normalizeIngredient(raw:unknown):Ingredient|null {
   const item=raw as Partial<Ingredient>;
   let name=typeof item.name==="string"?item.name.trim():"";
   if(!name)return null;
-  const hasQty=Number.isFinite(Number(item.amount));
+  const hasQty=typeof item.hasQty==="boolean"?item.hasQty:Number.isFinite(Number(item.amount));
   let amount=hasQty?Number(item.amount):1;
   let unit=abbreviateUnit(typeof item.unit==="string"?item.unit:"");
   if(unit.toLowerCase()==="l"&&/^arge\b/i.test(name)){name=`l${name}`;unit=""}
