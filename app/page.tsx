@@ -281,17 +281,16 @@ function categoryFor(name:string, unit="") {
   if(/\b(chicken|beef|turkey|pork|lamb|sausage|bacon|ham|salmon|shrimp|prawn|fish|tuna|cod|meat)\b/.test(value)) return "Meat & Seafood";
   if(/\b(milk|cheese|feta|cream|yogurt|butter|egg|eggs|sour cream|cottage cheese)\b/.test(value)) return "Dairy & Eggs";
   if(/\b(bread|tortilla|bun|roll|pita|bagel|brioche|naan)\b/.test(value)) return "Bakery";
-  if(/\b(canned|jarred|tomato paste|tomato sauce|marinara|canned tomatoes|pickles|olives|jam|jelly)\b/.test(value)||/^(can|jar)$/.test(unit)) return "Canned & Jarred Goods";
+  if(/\b(canned|jarred|tomato paste|tomato sauce|marinara|canned tomatoes|crushed tomatoes|diced tomatoes|whole tomatoes|pickles|olives|jam|jelly)\b/.test(value)||/^(can|jar)$/.test(unit)) return "Canned & Jarred Goods";
   if(/\b(mayo|mayonnaise|mustard|ketchup|soy sauce|hot sauce|salsa|vinegar|dressing|olive oil|vegetable oil|sesame oil)\b/.test(value)) return "Condiments & Sauces";
   if(/\b(salt|pepper|cumin|paprika|cinnamon|oregano|thyme|rosemary|basil|seasoning|spice|nutmeg|chili powder|curry)\b/.test(value)) return "Spices & Seasonings";
   if(/\b(frozen|ice cream|sorbet)\b/.test(value)) return "Frozen";
   if(/\b(chips|crackers|popcorn|pretzel|granola bar|snack|nuts|trail mix)\b/.test(value)) return "Snacks";
   if(/\b(coffee|tea|juice|soda|water|lemonade|wine|beer|drink|beverage)\b/.test(value)) return "Beverages";
   if(/\b(foil|plastic wrap|paper towel|napkin|detergent|cleaner|trash bag|parchment)\b/.test(value)) return "Household / Other";
-  if(/\b(onion|garlic|shallot|chive|pepper)\s+powder\b/.test(value)) return "Pantry / Dry Goods";
-  if(/\b(gnocchi|ravioli|tortellini|dumplings?|pierogi|stuffed pasta)\b/.test(value)) return "Pasta & Grains";
-  if(/\b(quinoa|rice|pasta|noodle|grain|oat|couscous)\b/.test(value)) return "Pasta & Grains";
-  if(/\b(flour|sugar|bean|lentil|cornmeal|breadcrumb)\b/.test(value)) return "Pantry / Dry Goods";
+  if(/\b(onion|garlic|shallot|chive|pepper)\s+powder\b/.test(value)) return "Spices & Seasonings";
+  if(/\b(gnocchi|ravioli|tortellini|dumplings?|pierogi|stuffed pasta|quinoa|rice|pasta|noodle|grain|oat|couscous|flour|sugar|bean|lentil|cornmeal|breadcrumb)\b/.test(value)) return "Pantry / Dry Goods";
+  if(/\b(?:fresh\s+)?lemon\s+juice\b/.test(value)) return "Vegetables";
   if(/\b(apple|banana|berries|berry|blueberr(?:y|ies)|blackberr(?:y|ies)|raspberr(?:y|ies)|strawberr(?:y|ies)|cherr(?:y|ies)|grape|orange|mandarin|tangerine|grapefruit|lemon|lime|peach|nectarine|plum|pear|mango|pineapple|watermelon|cantaloupe|melon|kiwi|papaya|coconut|pomegranate|fig|date|raisin|cranberr(?:y|ies))\b/.test(value)) return "Fruit";
   if(/\b(tomato|tomatoes|onion|onions|garlic|pepper|peppers|lettuce|potato|potatoes|cucumber|cucumbers|carrot|carrots|celery|spinach|kale|avocado|avocados|mushroom|mushrooms|broccoli|zucchini|herb|herbs|parsley|cilantro|mint|scallion|scallions|ginger)\b/.test(value)) return "Vegetables";
   return "Pantry / Dry Goods";
@@ -300,6 +299,27 @@ function categoryFor(name:string, unit="") {
 function excludeFromShoppingList(name:string) {
   const value=name.toLowerCase().trim();
   return /\bwater\b/.test(value) && !/\bsparkling\s+water\b/.test(value);
+}
+
+function normalizeShoppingIngredient(item:Ingredient):Ingredient {
+  const preparedName=item.name
+    .replace(/^(?:freshly|coarsely|finely)\s+ground\s+/i,"")
+    .replace(/^(?:chopped|minced|diced|sliced|shredded|grated|peeled|crushed|trimmed|halved|quartered)\s+/i,"")
+    .replace(/\s+/g," ").trim();
+  const value=preparedName.toLowerCase();
+  if(/\bsalt\b/.test(value)) {
+    const unit=item.unit.toLowerCase();
+    if(unit==="tablespoon"||unit==="tbsp") return {...item,name:"salt",amount:item.amount*3,unit:"tsp"};
+    if(unit==="cup"||unit==="c") return {...item,name:"salt",amount:item.amount*48,unit:"tsp"};
+    return {...item,name:"salt"};
+  }
+  if(/\bpepper\b/.test(value) && !/\b(bell|jalapeño?|chili|chilli|banana|cayenne)\s+pepper\b/.test(value)) {
+    const unit=item.unit.toLowerCase();
+    if(unit==="tablespoon"||unit==="tbsp") return {...item,name:"pepper",amount:item.amount*3,unit:"tsp"};
+    if(unit==="cup"||unit==="c") return {...item,name:"pepper",amount:item.amount*48,unit:"tsp"};
+    return {...item,name:"pepper"};
+  }
+  return {...item,name:preparedName};
 }
 
 function ingredientLineFor(item:Ingredient) {
@@ -532,8 +552,9 @@ export default function Home() {
     recipes.filter(r=>selected.includes(r.id)).forEach(r=>(Array.isArray(r.ingredients)?r.ingredients:[]).forEach(raw=>{
       const normalized=normalizeIngredient(raw); if(!normalized)return;
       if(excludeFromShoppingList(normalized.name)) return;
-      if(matchesGlobalIngredient(normalized.name,globalItems)) return;
-      const i=/^c$/i.test(normalized.unit.trim())?{...normalized,amount:normalized.amount*8,unit:"oz"}:normalized;
+      const shoppingIngredient=normalizeShoppingIngredient(normalized);
+      if(matchesGlobalIngredient(shoppingIngredient.name,globalItems)) return;
+      const i=/^c$/i.test(shoppingIngredient.unit.trim())?{...shoppingIngredient,amount:shoppingIngredient.amount*8,unit:"oz"}:shoppingIngredient;
       const canonicalName=singularizeName(i.name.trim());
       const key=`${canonicalName.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
       items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4)),hasQty:(old?.hasQty??false)||(i.hasQty??false)});
