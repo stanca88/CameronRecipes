@@ -302,6 +302,27 @@ function excludeFromShoppingList(name:string) {
   return /\bwater\b/.test(value) && !/\bsparkling\s+water\b/.test(value);
 }
 
+function normalizeShoppingIngredient(item:Ingredient):Ingredient {
+  const preparedName=item.name
+    .replace(/^(?:freshly|coarsely|finely)\s+ground\s+/i,"")
+    .replace(/^(?:chopped|minced|diced|sliced|shredded|grated|peeled|crushed|trimmed|halved|quartered)\s+/i,"")
+    .replace(/\s+/g," ").trim();
+  const value=preparedName.toLowerCase();
+  if(/\bsalt\b/.test(value)) {
+    const unit=item.unit.toLowerCase();
+    if(unit==="tablespoon"||unit==="tbsp") return {...item,name:"salt",amount:item.amount*3,unit:"tsp"};
+    if(unit==="cup"||unit==="c") return {...item,name:"salt",amount:item.amount*48,unit:"tsp"};
+    return {...item,name:"salt"};
+  }
+  if(/\bpepper\b/.test(value) && !/\b(bell|jalapeño?|chili|chilli|banana|cayenne)\s+pepper\b/.test(value)) {
+    const unit=item.unit.toLowerCase();
+    if(unit==="tablespoon"||unit==="tbsp") return {...item,name:"pepper",amount:item.amount*3,unit:"tsp"};
+    if(unit==="cup"||unit==="c") return {...item,name:"pepper",amount:item.amount*48,unit:"tsp"};
+    return {...item,name:"pepper"};
+  }
+  return {...item,name:preparedName};
+}
+
 function ingredientLineFor(item:Ingredient) {
   const amount=Math.round(item.amount*100)/100;
   const parts=[amount?String(amount):"",item.unit,item.name].filter(Boolean);
@@ -532,8 +553,9 @@ export default function Home() {
     recipes.filter(r=>selected.includes(r.id)).forEach(r=>(Array.isArray(r.ingredients)?r.ingredients:[]).forEach(raw=>{
       const normalized=normalizeIngredient(raw); if(!normalized)return;
       if(excludeFromShoppingList(normalized.name)) return;
-      if(matchesGlobalIngredient(normalized.name,globalItems)) return;
-      const i=/^c$/i.test(normalized.unit.trim())?{...normalized,amount:normalized.amount*8,unit:"oz"}:normalized;
+      const shoppingIngredient=normalizeShoppingIngredient(normalized);
+      if(matchesGlobalIngredient(shoppingIngredient.name,globalItems)) return;
+      const i=/^c$/i.test(shoppingIngredient.unit.trim())?{...shoppingIngredient,amount:shoppingIngredient.amount*8,unit:"oz"}:shoppingIngredient;
       const canonicalName=singularizeName(i.name.trim());
       const key=`${canonicalName.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
       items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4)),hasQty:(old?.hasQty??false)||(i.hasQty??false)});

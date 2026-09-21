@@ -198,6 +198,13 @@ for the active week.
 - Scale totals according to each meal's servings.
 - Treat canned tomato products, including crushed tomatoes, as Canned & Jarred
   Goods rather than Vegetables.
+- Combine salt variants such as kosher salt and sea salt into one `salt`
+  shopping item, and combine pepper variants into one `pepper` item. Leave
+  descriptors such as freshly ground or coarsely ground for recipe
+  instructions rather than showing them in shopping-list ingredient names.
+- Apply the same shopping-list normalization to preparation descriptors such
+  as chopped, minced, diced, sliced, shredded, grated, or peeled, while
+  keeping the original ingredient wording in the recipe.
 - Keep water available in recipe ingredients without adding plain water to the
  shopping list; sparkling water remains a shoppable ingredient.
 - Group items into practical grocery-aisle categories: Fruit, Vegetables, Meat &
