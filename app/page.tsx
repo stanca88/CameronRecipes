@@ -305,25 +305,37 @@ function excludeFromShoppingList(name:string) {
   return /\bwater\b/.test(value) && !/\bsparkling\s+water\b/.test(value);
 }
 
+function parseAmount(raw:string):number {
+  return raw.split(/\s+/).reduce((total,part)=>{
+    if(!part.includes("/")) return total+Number(part);
+    const [top,bottom]=part.split("/").map(Number);
+    return total+(bottom?top/bottom:0);
+  },0);
+}
+
 function normalizeShoppingIngredient(item:Ingredient):Ingredient {
-  const preparedName=item.name
+  const embeddedQuantity=/^\s*(\d+(?:\.\d+)?|\d+\s+\d+\/\d+|\d+\/\d+)\s+(cups?|tablespoons?|tbsp|teaspoons?|tsp|ounces?|oz|pounds?|lbs?|lb|grams?|g|kg|ml|liters?|l)\s+(.+)$/i.exec(item.name);
+  const parsedItem=embeddedQuantity
+    ? {...item,amount:parseAmount(embeddedQuantity[1]),unit:abbreviateUnit(embeddedQuantity[2]),name:embeddedQuantity[3],hasQty:true}
+    : item;
+  const preparedName=parsedItem.name
     .replace(/^(?:freshly|coarsely|finely)\s+ground\s+/i,"")
     .replace(/^(?:chopped|minced|diced|sliced|shredded|grated|peeled|crushed|trimmed|halved|quartered)\s+/i,"")
     .replace(/\s+/g," ").trim();
   const value=preparedName.toLowerCase();
   if(/\bsalt\b/.test(value)) {
-    const unit=item.unit.toLowerCase();
-    if(unit==="tablespoon"||unit==="tbsp") return {...item,name:"salt",amount:item.amount*3,unit:"tsp"};
-    if(unit==="cup"||unit==="c") return {...item,name:"salt",amount:item.amount*48,unit:"tsp"};
-    return {...item,name:"salt"};
+    const unit=parsedItem.unit.toLowerCase();
+    if(unit==="tablespoon"||unit==="tbsp") return {...parsedItem,name:"salt",amount:parsedItem.amount*3,unit:"tsp",hasQty:true};
+    if(unit==="cup"||unit==="c") return {...parsedItem,name:"salt",amount:parsedItem.amount*48,unit:"tsp",hasQty:true};
+    return {...parsedItem,name:"salt"};
   }
   if(/\bpepper\b/.test(value) && !/\b(bell|jalapeño?|chili|chilli|banana|cayenne)\s+pepper\b/.test(value)) {
-    const unit=item.unit.toLowerCase();
-    if(unit==="tablespoon"||unit==="tbsp") return {...item,name:"pepper",amount:item.amount*3,unit:"tsp"};
-    if(unit==="cup"||unit==="c") return {...item,name:"pepper",amount:item.amount*48,unit:"tsp"};
-    return {...item,name:"pepper"};
+    const unit=parsedItem.unit.toLowerCase();
+    if(unit==="tablespoon"||unit==="tbsp") return {...parsedItem,name:"pepper",amount:parsedItem.amount*3,unit:"tsp",hasQty:true};
+    if(unit==="cup"||unit==="c") return {...parsedItem,name:"pepper",amount:parsedItem.amount*48,unit:"tsp",hasQty:true};
+    return {...parsedItem,name:"pepper"};
   }
-  return {...item,name:preparedName};
+  return {...parsedItem,name:preparedName};
 }
 
 function ingredientLineFor(item:Ingredient) {
