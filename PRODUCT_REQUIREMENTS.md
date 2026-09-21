@@ -200,6 +200,7 @@ for the active week.
   Goods rather than Vegetables.
 - Treat onion powder and garlic powder as Spices & Seasonings rather than dry
   goods.
+- Treat fresh lemon juice as Vegetables because it requires fresh lemons.
 - Combine salt variants such as kosher salt and sea salt into one `salt`
   shopping item, and combine pepper variants into one `pepper` item. Leave
   descriptors such as freshly ground or coarsely ground for recipe
