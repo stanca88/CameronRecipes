@@ -287,7 +287,7 @@ function categoryFor(name:string, unit="") {
   if(/\b(chips|crackers|popcorn|pretzel|granola bar|snack|nuts|trail mix)\b/.test(value)) return "Snacks";
   if(/\b(coffee|tea|juice|soda|water|lemonade|wine|beer|drink|beverage)\b/.test(value)) return "Beverages";
   if(/\b(foil|plastic wrap|paper towel|napkin|detergent|cleaner|trash bag|parchment)\b/.test(value)) return "Household / Other";
-  if(/\b(onion|garlic|shallot|chive|pepper)\s+powder\b/.test(value)) return "Pantry / Dry Goods";
+  if(/\b(onion|garlic|shallot|chive|pepper)\s+powder\b/.test(value)) return "Spices & Seasonings";
   if(/\b(gnocchi|ravioli|tortellini|dumplings?|pierogi|stuffed pasta|quinoa|rice|pasta|noodle|grain|oat|couscous|flour|sugar|bean|lentil|cornmeal|breadcrumb)\b/.test(value)) return "Pantry / Dry Goods";
   if(/\b(apple|banana|berries|berry|blueberr(?:y|ies)|blackberr(?:y|ies)|raspberr(?:y|ies)|strawberr(?:y|ies)|cherr(?:y|ies)|grape|orange|mandarin|tangerine|grapefruit|lemon|lime|peach|nectarine|plum|pear|mango|pineapple|watermelon|cantaloupe|melon|kiwi|papaya|coconut|pomegranate|fig|date|raisin|cranberr(?:y|ies))\b/.test(value)) return "Fruit";
   if(/\b(tomato|tomatoes|onion|onions|garlic|pepper|peppers|lettuce|potato|potatoes|cucumber|cucumbers|carrot|carrots|celery|spinach|kale|avocado|avocados|mushroom|mushrooms|broccoli|zucchini|herb|herbs|parsley|cilantro|mint|scallion|scallions|ginger)\b/.test(value)) return "Vegetables";

@@ -198,6 +198,8 @@ for the active week.
 - Scale totals according to each meal's servings.
 - Treat canned tomato products, including crushed tomatoes, as Canned & Jarred
   Goods rather than Vegetables.
+- Treat onion powder and garlic powder as Spices & Seasonings rather than dry
+  goods.
 - Combine salt variants such as kosher salt and sea salt into one `salt`
   shopping item, and combine pepper variants into one `pepper` item. Leave
   descriptors such as freshly ground or coarsely ground for recipe
