@@ -715,7 +715,7 @@ export default function Home() {
     if(editingRecipeId){
       const id=editingRecipeId;
       const updatedDirections=directions.split("\n").map(x=>x.trim()).filter(Boolean).map((text,index)=>directionImages[index]?{text,image:directionImages[index]}:text);
-      const updated={title:title.trim(),tag:tag.trim()||null,ingredients:parsedIngredients(),directions:updatedDirections,image:imageUrl||undefined,source_url:url||undefined,source_name:sourceName||undefined};
+      const updated={title:title.trim(),...(tag.trim()?{tag:tag.trim()}:{}),ingredients:parsedIngredients(),directions:updatedDirections,image:imageUrl||undefined,source_url:url||undefined,source_name:sourceName||undefined};
       try{const response=await fetch(`/api/recipes/${id}`,{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(updated)});if(!response.ok){const data=await response.json().catch(()=>null);throw new Error(data?.error||"Failed to save recipe changes")}const saved=await syncNow();if(saved){resetAdd();setOpen(false);setActiveRecipe(prev=>prev&&prev.id===id?{...prev,title:updated.title,tag:updated.tag||undefined,ingredients:updated.ingredients,directions:updated.directions,image:updated.image,sourceUrl:updated.source_url,sourceName:updated.source_name}:prev)}else{throw new Error("Could not refresh recipes after saving.")}}catch(error){setSaveError(error instanceof Error?error.message:"Failed to save recipe changes");console.error("Failed to save recipe changes:",error)}finally{setSavingRecipe(false)}
       return;
     }
