@@ -20,6 +20,10 @@ type WeeklyPlan = { selected: string[]; servings: Record<string,number>; checked
 type SavedWeek = { id: string; label: string; savedAt: string; meals: { id: string; title: string; emoji: string; people: number; chef?: string; day?: string }[] };
 type ShoppingItem = { id: string; ingredient_key: string; ingredient_name: string; ingredient_amount: number; ingredient_unit: string; ingredient_category: string; checked: boolean };
 
+function BackButton({ onClick }: { onClick: () => void }) {
+  return <Button type="button" onClick={onClick} aria-label="Back" className="h-11 shrink-0 gap-1.5 rounded-lg border-0 bg-[#257F4B] px-4 text-sm font-semibold text-white hover:bg-[#1f6b3f] hover:text-white sm:h-9"><ArrowLeft size={18}/><span>Back</span></Button>;
+}
+
 const starterRecipes: Recipe[] = [
   {id:"roasted-veg-bowl",title:"Roasted Vegetable Grain Bowl",emoji:"🥗",time:"35 min",serves:4,author:"Maria",image:"/veg-bowl.jpg",ingredients:[
     {name:"quinoa",amount:1,unit:"cup",category:"Pantry"},{name:"sweet potato",amount:2,unit:"",category:"Vegetables"},{name:"chickpeas",amount:1,unit:"can",category:"Pantry"},{name:"spinach",amount:3,unit:"cups",category:"Vegetables"},{name:"feta",amount:4,unit:"oz",category:"Dairy"},{name:"olive oil",amount:2,unit:"tbsp",category:"Pantry"}],directions:["Roast cubed sweet potato and chickpeas at 425°F until golden.","Cook quinoa per package instructions.","Toss quinoa with roasted veg, spinach, feta, olive oil, lemon, salt, and pepper."]},
@@ -405,6 +409,7 @@ export default function Home() {
   const [collapsed,setCollapsed]=useState<Record<string,boolean>>({});
   const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("plan");
+  const [mockCategoryPreview,setMockCategoryPreview]=useState(false);
   const [shopTab,setShopTab]=useState<"meals"|"global">("meals");
   const [preRecipesView,setPreRecipesView]=useState("plan");
   const [planPicking,setPlanPicking]=useState(false);
@@ -474,7 +479,7 @@ export default function Home() {
   const headerImageIndex=headerTick%headerImages.length;
   const headerTagline=headerTaglines[headerTick%headerTaglines.length];
 
-  useEffect(()=>{try{const params=new URLSearchParams(window.location.search);if(params.get("resetLocal")==="1"){localStorage.removeItem("cameron-family-table");params.delete("resetLocal");const newUrl=window.location.pathname+(params.toString()?"?"+params.toString():"");window.history.replaceState({},"",newUrl);}const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}}finally{setLoaded(true);loadSharedRecipes()}},[]);
+  useEffect(()=>{try{const params=new URLSearchParams(window.location.search);setMockCategoryPreview(params.get("mockCategory")==="1");if(params.get("view")==="shop")setView("shop");if(params.get("resetLocal")==="1"){localStorage.removeItem("cameron-family-table");params.delete("resetLocal");const newUrl=window.location.pathname+(params.toString()?"?"+params.toString():"");window.history.replaceState({},"",newUrl);}const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}}finally{setLoaded(true);loadSharedRecipes()}},[]);
   const [sharedLinkApplied,setSharedLinkApplied]=useState(false);
   useEffect(()=>{
     if(!loaded||sharedLinkApplied)return;
@@ -558,14 +563,16 @@ export default function Home() {
       const canonicalName=singularizeName(i.name.trim());
       const key=`${canonicalName.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
       items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4)),hasQty:(old?.hasQty??false)||(i.hasQty??false)});
-      })); return [...items.values()].sort((a,b)=>(GROCERY_CATEGORY_ORDER.indexOf(a.category)-GROCERY_CATEGORY_ORDER.indexOf(b.category))||a.name.localeCompare(b.name));
-  },[recipes,selected,servings,globalItems]);
+      }));
+    if(mockCategoryPreview)items.set("mobile preview item|unit|Mobile Preview",{name:"mobile preview item",amount:1,unit:"unit",category:"Mobile Preview",hasQty:true});
+    return [...items.values()].sort((a,b)=>(GROCERY_CATEGORY_ORDER.indexOf(a.category)-GROCERY_CATEGORY_ORDER.indexOf(b.category))||a.name.localeCompare(b.name));
+  },[recipes,selected,servings,globalItems,mockCategoryPreview]);
   const categories=[...new Set(grocery.map(i=>i.category))];
   const syncedChecked=useMemo(()=>{const localSet=new Set(checked);const syncedKeys=new Set(shoppingItems.filter(s=>s.checked).map(s=>s.ingredient_key));return Array.from(new Set([...localSet,...syncedKeys]));},[checked,shoppingItems]);
   const grocerySignature=useMemo(()=>JSON.stringify(grocery.map(g=>[g.name.toLowerCase(),g.unit.toLowerCase(),g.category,Math.round(g.amount*100)])),[grocery]);
   const lastSavedGrocerySignatureRef=useRef<Record<string,string>>({});
   useEffect(()=>{
-    if(!loaded)return;
+    if(!loaded||grocery.length===0||mockCategoryPreview)return;
     if(lastSavedGrocerySignatureRef.current[activeWeekKey]===grocerySignature)return;
     (async()=>{
       try{
@@ -574,7 +581,7 @@ export default function Home() {
         lastSavedGrocerySignatureRef.current[activeWeekKey]=grocerySignature;
       }catch(e){console.error("Failed to save shopping list:",e)}
     })();
-  },[grocery,activeWeekKey,loaded]);
+  },[grocery,activeWeekKey,loaded,mockCategoryPreview]);
   useEffect(()=>{
     if(!loaded)return;
     if(unsubscribeRef.current)unsubscribeRef.current();
@@ -752,11 +759,10 @@ export default function Home() {
   }
 
   return <main className="min-h-screen bg-[#faf9f5] text-[#1f3529]" style={{scrollbarGutter:'stable'}}>
-
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       {activeRecipe ? <article>
         <div className="mb-5 flex items-center justify-between gap-2">
-          <Button className="shrink-0 gap-1.5 rounded-lg border-0 bg-[#257F4B] px-3 text-white hover:bg-[#1f6b3f] hover:text-white sm:h-9" onClick={()=>setActiveRecipe(null)} aria-label="Back"><ArrowLeft size={18}/><span>Back</span></Button>
+          <BackButton onClick={()=>setActiveRecipe(null)}/>
           <div className="flex min-w-0 gap-2"><Button onClick={()=>toggle(activeRecipe.id)} variant="outline" size="icon" className={`shrink-0 rounded-lg border-[#d8d5cd] bg-white sm:h-9 sm:w-auto sm:px-4 ${selected.includes(activeRecipe.id)?"text-[#257F4B] hover:bg-[#eaf4ee]":"text-[#257F4B] hover:bg-[#edf3ee]"}`} aria-label={selected.includes(activeRecipe.id)?`Added to ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}>{selected.includes(activeRecipe.id)?<Check size={18}/>:<Plus size={18}/>}<span className="hidden sm:inline">{selected.includes(activeRecipe.id)?`Added to ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}</span></Button><Button variant="outline" size="icon" className="shrink-0 rounded-lg border-[#d8d5cd] bg-white text-[#257F4B] hover:bg-[#edf3ee] sm:h-9 sm:w-auto sm:px-3" onClick={()=>openEditRecipe(activeRecipe)} aria-label="Edit"><Pencil size={18}/><span className="hidden sm:inline">Edit</span></Button><Button variant="outline" size="icon" className="shrink-0 rounded-lg border-[#d7a39a] bg-white text-[#a33f32] hover:bg-[#fbe9e2] hover:text-[#8c3025] sm:h-9 sm:w-auto sm:px-3" onClick={()=>setRecipeToDelete(activeRecipe)} aria-label="Delete"><Trash2 size={18}/><span className="hidden sm:inline">Delete</span></Button></div>
         </div>
         <div className="overflow-hidden rounded-[1.75rem] border border-[#dedbd2] bg-white">
@@ -804,7 +810,7 @@ export default function Home() {
       </header>}
         {view==="recipes"
           ? <div className="mb-4 flex items-center justify-between gap-2 pb-2 pt-4 sm:pt-3">
-              <Button className="shrink-0 rounded-lg border-0 bg-[#257F4B] text-white hover:bg-[#1f6b3f]" onClick={()=>setView(preRecipesView)}><ArrowLeft size={18}/>Back</Button>
+              <BackButton onClick={()=>setView(preRecipesView)}/>
               <div className="flex items-center gap-2">
                 <Button onClick={()=>{resetAdd();setOpen(true)}} variant="outline" aria-label="Add a recipe" className="h-12 shrink-0 rounded-xl border-[#d9d5cc] bg-white px-4 text-sm font-semibold text-[#45644e] shadow-none transition-colors hover:bg-[#257F4B] hover:text-white sm:h-9"><Plus size={18}/>Add recipe</Button>
                 {searchOpen
@@ -828,7 +834,7 @@ export default function Home() {
         <TabsContent value="plan">{planPicking
           ? <div>
               <div className="mb-4 flex items-center gap-2">
-                <Button className="shrink-0 rounded-lg border-0 bg-[#257F4B] text-white hover:bg-[#1f6b3f]" onClick={()=>{setPlanPicking(false);setPlanQuery("");setPlanSearchOpen(false)}}><ArrowLeft size={18}/>Back</Button>
+                <BackButton onClick={()=>{setPlanPicking(false);setPlanQuery("");setPlanSearchOpen(false)}}/>
                 <div className="flex-1"/>
                 {planSearchOpen
                   ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
@@ -858,15 +864,15 @@ export default function Home() {
                       const items = grocery.filter(i=>i.category===cat);
                       return (
                         <section key={cat} className="min-w-0 w-full overflow-hidden rounded-2xl border border-[#ddd4c3] bg-[#fffdf8] shadow-[0_2px_10px_rgba(45,61,50,.04)]">
-                          <button type="button" onClick={()=>setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} className="flex w-full items-center justify-between border-b border-[#ebe6dc] bg-[#f6f1e7] px-4 py-3 text-left hover:bg-[#f1ead9]">
+                          <button type="button" onClick={()=>setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} className="flex w-full items-center justify-between border-b border-[#ebe6dc] bg-[#f6f1e7] px-3 py-1.5 text-left hover:bg-[#f1ead9] sm:px-4 sm:py-3">
                             <h3 className="font-sans text-sm font-bold uppercase tracking-wide text-[#45644e]">{cat}</h3>
-                            <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-md text-[#45644e] sm:size-8">{collapsed[cat]?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
+                            <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-md text-[#45644e] sm:size-8">{collapsed[cat]?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
                           </button>
-                          <div id={`cat-${cat}`} className={collapsed[cat]?"hidden p-2":"p-2"}>
+                          <div id={`cat-${cat}`} className={collapsed[cat]?"hidden p-1 sm:p-2":"p-1 sm:p-2"}>
                             {items.map(i=>{const key=`${i.name.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`;const done=syncedChecked.includes(key);const phrase=formatIngredientPhrase(i);return (
-                              <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-3.5 rounded-xl px-2 py-3 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
-                                <Checkbox className="mt-1.5 size-6 shrink-0 sm:mt-1 sm:size-4" checked={done} onCheckedChange={()=>toggleShoppingItemSync(key,!done)}/>
-                                <span className="min-w-0 flex-1 text-xl leading-relaxed text-[#1f3529] sm:text-base">{phrase}</span>
+                              <label key={key} className={`flex min-w-0 cursor-pointer items-start gap-2 rounded-xl px-1 py-1.5 sm:gap-3.5 sm:px-2 sm:py-3 ${done?"text-[#9a9f9b] line-through":"hover:bg-[#f5f0e6]"}`}>
+                                <Checkbox className="mt-1 size-5 shrink-0 sm:mt-1 sm:size-4" checked={done} onCheckedChange={()=>toggleShoppingItemSync(key,!done)}/>
+                                <span className="min-w-0 flex-1 text-base leading-normal text-[#1f3529] sm:text-base sm:leading-relaxed">{phrase}</span>
                               </label>
                             )})}
                           </div>
