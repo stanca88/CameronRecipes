@@ -33,12 +33,14 @@ const starterRecipes: Recipe[] = [
     {name:"beef chuck",amount:2,unit:"lb",category:"Meat"},{name:"carrots",amount:3,unit:"",category:"Vegetables"},{name:"potatoes",amount:3,unit:"",category:"Vegetables"},{name:"onion",amount:1,unit:"",category:"Vegetables"},{name:"beef broth",amount:4,unit:"cups",category:"Pantry"},{name:"tomato paste",amount:2,unit:"tbsp",category:"Pantry"}],directions:["Brown beef in batches, set aside.","Sauté onion, add carrots and potato, then return beef to pot.","Add broth and tomato paste, simmer covered 1.5–2 hours until beef is tender."]}
 ];
 
-function directionText(step: string | DirectionStep): string {
+function directionText(step: string | DirectionStep | null | undefined): string {
+  if (!step) return "";
   return typeof step === "string" ? step : step.text;
 }
 
-function directionImage(step: string | DirectionStep): string | undefined {
-  return typeof step === "string" ? undefined : step.image;
+function directionImage(step: string | DirectionStep | null | undefined): string | undefined {
+  if (!step || typeof step === "string") return undefined;
+  return step.image;
 }
 
 function normalizeDirectionStep(value: unknown): string | DirectionStep | null {
@@ -554,7 +556,29 @@ export default function Home() {
     if(Array.isArray(items)) setGlobalItems(items);
   };
   const syncNow=async()=>{setSyncing(true);try{const hasShared=await loadSharedRecipes();if(hasShared){const response=await fetch(`/api/shopping?week_key=${encodeURIComponent(activeWeekKey)}`);if(response.ok){const {items}=await response.json();if(Array.isArray(items))setShoppingItems(items)}await syncGlobalItems()}return hasShared}finally{setSyncing(false)}};
-  const hardRefresh=async()=>{setSyncing(true);try{await syncNow()}finally{window.location.reload()}};
+  const refreshRecipeImages=async()=>{
+    const candidates=recipes.filter(recipe=>recipe.sourceUrl);
+    for(const recipe of candidates){
+      try{
+        const response=await fetch("/api/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({url:recipe.sourceUrl})});
+        if(!response.ok)continue;
+        const imported=await response.json();
+        const importedDirections=(imported.directions||[]).map(normalizeDirectionStep).filter((step: string|DirectionStep|null): step is string|DirectionStep=>step!==null);
+        const currentDirections=(recipe.directions||[]).map(normalizeDirectionStep).filter((step: string|DirectionStep|null): step is string|DirectionStep=>step!==null);
+        const directions=currentDirections.map((step,index)=>{
+          const importedStep=importedDirections[index];
+          const existingImage=directionImage(step);
+          const newImage=directionImage(importedStep);
+          return newImage&&!existingImage?{text:directionText(step),image:newImage}:step;
+        });
+        const image=recipe.image||imported.image;
+        const changed=image!==recipe.image||directions.some((step,index)=>directionImage(step)!==directionImage(currentDirections[index]));
+        if(!changed)continue;
+        await fetch(`/api/recipes/${recipe.id}`,{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({image,directions})});
+      }catch(error){console.error(`Failed to refresh images for ${recipe.title}:`,error)}
+    }
+  };
+  const hardRefresh=async()=>{setSyncing(true);try{await refreshRecipeImages();await syncNow()}finally{window.location.reload()}};
   useEffect(()=>{if(loaded)localStorage.setItem("cameron-family-table",JSON.stringify({recipes,plans,history}))},[loaded,recipes,plans,history]);
   const mergeRemoteHistory=(remoteWeeks:any[])=>{
     if(!Array.isArray(remoteWeeks))return;
@@ -821,7 +845,7 @@ export default function Home() {
               {recipeTab==="ingredients"
                 ? <section className="min-w-0"><button onClick={()=>setIngredientsCollapsed(v=>!v)} aria-expanded={!ingredientsCollapsed} aria-controls="ingredients-list" className="flex w-full items-center justify-between gap-3 text-left"><h3 className="font-serif text-2xl font-bold">Ingredients</h3><span aria-label={ingredientsCollapsed?"Expand ingredients":"Collapse ingredients"} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#d8d5cd] bg-white text-[#257F4B] hover:bg-[#f1f4ef]">{ingredientsCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!ingredientsCollapsed&&<div id="ingredients-list" className="mt-4 space-y-5">{(["To use","Used"] as const).map((heading,index)=>{const sectionKey=index===0?"toUse":"used";const isCollapsed=ingredientSectionsCollapsed[sectionKey];const items=(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,itemIndex)=>({item:normalizeIngredient(raw),index:itemIndex})).filter(({item,index:itemIndex})=>item&& (index===0?!((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex)):((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex))));return <section key={heading} className="overflow-hidden"><button type="button" onClick={()=>setIngredientSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full items-center justify-between bg-[#f6f1e7] px-4 py-3 text-left hover:bg-[#f1ead9]"><span className="flex items-center gap-2 font-serif text-xl font-bold text-[#45644e]"><span className="grid size-8 place-items-center rounded-full bg-[#e6efe7] text-[#257F4B]">{index===0?<Plus size={16}/>:<Check size={16}/>}</span>{heading}<span className="text-sm font-sans font-medium text-[#8a9187]">({items.length})</span></span><span className="grid size-8 place-items-center text-[#45644e]" aria-hidden="true">{isCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!isCollapsed&&<div className="space-y-1 p-2">{items.map(({item,index:itemIndex})=>{if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);const phrase=formatIngredientPhrase(item,amount);const done=(checkedIngredients[activeRecipe.id]||[]).includes(itemIndex);return <label key={itemIndex} className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl px-2 py-3 text-xl leading-relaxed transition sm:text-base ${done?"text-[#9a9f9b] line-through":"text-[#1f3529] hover:bg-[#f5f0e6]"}`}><Checkbox className="size-6 shrink-0 sm:size-5" checked={done} onCheckedChange={()=>toggleIngredientDone(activeRecipe.id,itemIndex)} aria-label={`${done?"Uncheck":"Check off"} ${phrase}`}/><span className="min-w-0 flex-1">{phrase}</span></label>})}{!items.length&&<p className="rounded-xl border border-dashed border-[#cfc5b2] p-5 text-sm text-[#6d786f]">{index===0?"Everything is marked used.":"Used ingredients will appear here."}</p>}</div>}</section>})}</div>}</section>
                 : <section className="min-w-0"><h3 className="font-serif text-2xl font-bold">Directions</h3>{activeRecipe.directions?.length?<>
-                  <ol className="mt-5 space-y-2">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);const text=directionText(step);const image=directionImage(step);return <li key={index}><button onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 flex-wrap items-start gap-3 rounded-2xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35 ${done?"border-[#bcd6c1] bg-[#eaf3ea]":"border-[#ddd4c3] bg-[#fffdf8] hover:border-[#bcd6c1] hover:bg-[#f5f8f4]"}`}><span className={`mt-1 grid size-7 shrink-0 place-items-center rounded-full text-sm font-semibold text-white ${done?"bg-[#257F4B]":"border-2 border-[#9aa69c] bg-transparent text-transparent"}`}>{done&&<Check size={16}/>}</span><span className="min-w-0 flex-1"><p className={`text-lg leading-relaxed sm:text-base ${done?"text-[#78907c] line-through":"text-[#1f3529]"}`}>{text}</p>{image&&<img src={image} alt="" className="mt-3 max-h-72 w-full rounded-xl object-cover" />}</span></button></li>})}</ol>
+                  <ol className="mt-5 space-y-2">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);const text=directionText(step);const image=directionImage(step);return <li key={index}><button onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 flex-wrap items-start gap-3 rounded-2xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#257F4B]/35 ${done?"border-[#bcd6c1] bg-[#eaf3ea]":"border-[#ddd4c3] bg-[#fffdf8] hover:border-[#bcd6c1] hover:bg-[#f5f8f4]"}`}><span className={`mt-1 grid size-7 shrink-0 place-items-center rounded-full text-sm font-semibold text-white ${done?"bg-[#257F4B]":"border-2 border-[#9aa69c] bg-transparent text-transparent"}`}>{done&&<Check size={16}/>}</span><span className="min-w-0 flex-1"><p className={`text-lg leading-relaxed sm:text-base ${done?"truncate text-[#78907c] line-through":"text-[#1f3529]"}`}>{text}</p>{image&&!done&&<img src={image} alt="" className="mt-3 max-h-72 w-full rounded-xl object-cover" />}</span></button></li>})}</ol>
                   {completedSteps.length===activeRecipe.directions.length&&<div className="mt-6 rounded-2xl border border-[#bcd6c1] bg-[#eaf3ea] p-5 text-center"><Check className="mx-auto mb-2 text-[#257F4B]"/><p className="font-semibold text-[#244832]">All steps done — enjoy!</p></div>}
                 </>:<p className="mt-4 rounded-xl bg-[#f2ecdf] p-4 text-sm text-[#6d786f]">Directions weren’t included with this saved recipe. Re-import it from its recipe page to add them.</p>}</section>}
             </div>
@@ -944,7 +968,7 @@ export default function Home() {
       </Tabs>
       </>}
     </div>
-    <button type="button" onClick={hardRefresh} disabled={syncing} aria-label="Refresh app" title="Refresh app" className="fixed bottom-5 right-5 z-40 grid size-12 place-items-center rounded-full bg-[#257F4B] text-white shadow-lg transition-colors hover:bg-[#1f6b3f] disabled:opacity-60"><RefreshCw size={20} className={syncing?"animate-spin":""}/></button>
+    <button type="button" onClick={hardRefresh} disabled={syncing} aria-label="Refresh recipes and images" title="Refresh recipes and images" className="fixed bottom-5 right-5 z-40 grid size-12 place-items-center rounded-full bg-[#257F4B] text-white shadow-lg transition-colors hover:bg-[#1f6b3f] disabled:opacity-60"><RefreshCw size={20} className={syncing?"animate-spin":""}/></button>
     <AlertDialog open={!!recipeToDelete} onOpenChange={value=>{if(!value)setRecipeToDelete(null)}}><AlertDialogContent className="bg-[#fffdf8]"><AlertDialogHeader><AlertDialogTitle>Delete “{recipeToDelete?.title}”?</AlertDialogTitle><AlertDialogDescription>This removes the recipe from your collection, this week’s plan, and the shopping list. Previously saved week history will remain unchanged.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep recipe</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={()=>recipeToDelete&&deleteRecipe(recipeToDelete.id)}>Delete recipe</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </main>;
 }
