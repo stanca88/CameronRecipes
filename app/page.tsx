@@ -37,6 +37,28 @@ function directionImage(step: string | DirectionStep): string | undefined {
   return typeof step === "string" ? undefined : step.image;
 }
 
+function normalizeDirectionStep(value: unknown): string | DirectionStep | null {
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as { text?: unknown; image?: unknown };
+      if (parsed && typeof parsed.text === "string") {
+        return {
+          text: parsed.text,
+          image: typeof parsed.image === "string" ? parsed.image : undefined,
+        };
+      }
+    } catch {
+      // Plain-text direction.
+    }
+    return value;
+  }
+  if (value && typeof value === "object" && typeof (value as { text?: unknown }).text === "string") {
+    const step = value as { text: string; image?: unknown };
+    return { text: step.text, image: typeof step.image === "string" ? step.image : undefined };
+  }
+  return null;
+}
+
 function weekStart(offset = 0, date = new Date()) {
   const start = new Date(date); const day = start.getDay();
   start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
@@ -476,7 +498,7 @@ export default function Home() {
     const newUrl=window.location.pathname+(search?`?${search}`:"");
     if(newUrl!==window.location.pathname+window.location.search)window.history.replaceState({},"",newUrl);
   },[loaded,sharedLinkApplied,view,activeRecipe,weekOffset]);
-  const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)){const normalized=shared.map((r:any)=>({...r,tag:typeof r.tag==="string"?r.tag.trim()||undefined:undefined,sourceUrl:r.sourceUrl||r.source_url||undefined,sourceName:r.sourceName||r.source_name||undefined,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>normalizeIngredient(i)).filter((i:Ingredient|null):i is Ingredient=>i!==null):[],directions:Array.isArray(r.directions)?r.directions.filter((d:any):d is string|DirectionStep=>typeof d==="string"||(d&&typeof d.text==="string")):[]}));setRecipes(normalized);setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>[key,{...plan,selected:plan.selected.filter(id=>normalized.some(recipe=>recipe.id===id)),servings:Object.fromEntries(Object.entries(plan.servings).filter(([id])=>normalized.some(recipe=>recipe.id===id))),checked:plan.checked,chefs:Object.fromEntries(Object.entries(plan.chefs||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id))),days:Object.fromEntries(Object.entries(plan.days||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id)))}])));setRecipesLoaded(true);return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
+  const loadSharedRecipes=async()=>{try{const response=await fetch("/api/recipes");if(!response.ok)return false;const {recipes:shared}=await response.json();if(Array.isArray(shared)){const normalized=shared.map((r:any)=>({...r,tag:typeof r.tag==="string"?r.tag.trim()||undefined:undefined,sourceUrl:r.sourceUrl||r.source_url||undefined,sourceName:r.sourceName||r.source_name||undefined,ingredients:Array.isArray(r.ingredients)?r.ingredients.map((i:any)=>normalizeIngredient(i)).filter((i:Ingredient|null):i is Ingredient=>i!==null):[],directions:Array.isArray(r.directions)?r.directions.map(normalizeDirectionStep).filter((d:any):d is string|DirectionStep=>d!==null):[]}));setRecipes(normalized);setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>[key,{...plan,selected:plan.selected.filter(id=>normalized.some(recipe=>recipe.id===id)),servings:Object.fromEntries(Object.entries(plan.servings).filter(([id])=>normalized.some(recipe=>recipe.id===id))),checked:plan.checked,chefs:Object.fromEntries(Object.entries(plan.chefs||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id))),days:Object.fromEntries(Object.entries(plan.days||{}).filter(([id])=>normalized.some(recipe=>recipe.id===id)))}])));setRecipesLoaded(true);return true}return false}catch(e){console.error("Failed to load shared recipes:",e);return false}};
   const syncGlobalItems=async()=>{
     const response=await fetch("/api/shopping/global");
     if(!response.ok) throw new Error("Failed to fetch global shopping items");
@@ -708,7 +730,7 @@ export default function Home() {
           <div><label className="block text-base font-bold text-[#244832]">Tag <span className="font-normal text-[#6d786f]">(optional)</span></label><p className="mt-1 text-sm text-[#6d786f]">Use a cuisine or any label your family will recognize. Leave blank to infer one.</p><Input value={tag} onChange={e=>setTag(e.target.value)} placeholder="e.g. Italian, Weeknight, Favorite" className={fieldClass}/></div>
           <div><label className="block text-base font-bold text-[#244832]">Image URL <span className="font-normal text-[#6d786f]">(optional)</span></label><Input value={imageUrl} onChange={e=>setImageUrl(e.target.value)} placeholder="https://..." className={fieldClass}/></div>
           <div><label className="block text-base font-bold text-[#244832]">Ingredients</label><p className="mt-1 text-sm text-[#6d786f]">Add one ingredient per line.</p><Textarea value={ingredients} onChange={e=>setIngredients(e.target.value)} placeholder={"2 apples\n1 cup flour\nA pinch of salt"} rows={7} className={textAreaClass}/></div>
-          <div><label className="block text-base font-bold text-[#244832]">Directions</label><p className="mt-1 text-sm text-[#6d786f]">Add one step per line.</p><Textarea value={directions} onChange={e=>setDirections(e.target.value)} placeholder={"Heat oven to 375°F\nMix ingredients\nBake until golden"} rows={7} className={textAreaClass}/></div>
+          <div><label className="block text-base font-bold text-[#244832]">Directions</label><p className="mt-1 text-sm text-[#6d786f]">Add one step per line. You can add an image URL to any step.</p><Textarea value={directions} onChange={e=>setDirections(e.target.value)} placeholder={"Heat oven to 375°F\nMix ingredients\nBake until golden"} rows={7} className={textAreaClass}/><div className="mt-4 space-y-3">{directions.split("\n").map((step,index)=>step.trim()?<div key={index} className="rounded-xl border border-[#e1e8df] bg-[#f8fbf7] p-3"><p className="text-sm font-semibold text-[#45644e]">Step {index+1}: {step.trim()}</p><Input value={directionImages[index]||""} onChange={event=>setDirectionImages(previous=>{const next=[...previous];next[index]=event.target.value;return next})} placeholder="Step image URL (optional)" aria-label={`Image URL for step ${index+1}`} className="mt-2 min-h-12 border-[#c9d6cb] bg-white text-sm shadow-none focus-visible:border-[#257F4B] focus-visible:ring-4 focus-visible:ring-[#257F4B]/15"/></div>:null)}</div></div>
           {addMode==="review"&&<p className="rounded-xl bg-[#edf3ee] p-4 text-sm leading-relaxed text-[#45644e]">Everything is editable before you save it.</p>}
           {saveError&&<p role="alert" className="rounded-xl bg-[#fbe9e2] p-4 text-sm leading-relaxed text-[#9a402d]">{saveError}</p>}
           <Button type="button" className="h-14 w-full rounded-xl bg-[#45644e] text-base font-bold text-white hover:bg-[#305a3c]" disabled={savingRecipe} onClick={saveRecipe}>{savingRecipe?"Saving…":editingRecipeId?"Save changes":`Save and add to ${weekRange(weekOffset)}`}</Button>
