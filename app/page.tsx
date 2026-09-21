@@ -568,8 +568,11 @@ export default function Home() {
       if(matchesGlobalIngredient(shoppingIngredient.name,globalItems)) return;
       const i=/^c$/i.test(shoppingIngredient.unit.trim())?{...shoppingIngredient,amount:shoppingIngredient.amount*8,unit:"oz"}:shoppingIngredient;
       const canonicalName=singularizeName(i.name.trim());
-      const key=`${canonicalName.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`; const old=items.get(key); const people=servings[r.id]||4;
-      items.set(key,{...i,name:canonicalName,amount:(old?.amount||0)+(i.amount*people/(r.serves||4)),hasQty:(old?.hasQty??false)||(i.hasQty??false)});
+      const canonicalKey=canonicalName.toLowerCase();
+      const key=/^(salt|pepper)$/.test(canonicalKey)?`${canonicalKey}|${i.category}`:`${canonicalKey}|${i.unit.toLowerCase()}|${i.category}`;
+      const old=items.get(key); const people=servings[r.id]||4;
+      const amountToAdd=i.hasQty===false?0:i.amount*people/(r.serves||4);
+      items.set(key,{...(old||i),...i,name:canonicalName,unit:i.unit||old?.unit||"",amount:(old?.amount||0)+amountToAdd,hasQty:(old?.hasQty??false)||(i.hasQty??false)});
       })); return [...items.values()].sort((a,b)=>(GROCERY_CATEGORY_ORDER.indexOf(a.category)-GROCERY_CATEGORY_ORDER.indexOf(b.category))||a.name.localeCompare(b.name));
   },[recipes,selected,servings,globalItems]);
   const categories=[...new Set(grocery.map(i=>i.category))];
