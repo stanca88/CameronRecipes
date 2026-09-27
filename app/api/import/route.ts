@@ -114,6 +114,136 @@ function metaContent(html: string, name: string, attr: "property" | "name" = "pr
   return backward ? decode(backward[1]) : "";
 }
 
+function looksLikeCloudflareChallenge(html: string): boolean {
+  const lower = html.toLowerCase();
+  return lower.includes("just a moment")
+    || lower.includes("cf-challenge")
+    || lower.includes("checking your browser");
+}
+
+async function fetchRecipePage(url: URL): Promise<string> {
+  const response = await fetch(url, {
+    headers: {"user-agent":"Mozilla/5.0 (compatible; CameronFamilyRecipes/1.0)"},
+    signal: AbortSignal.timeout(12000),
+  });
+  const html = await response.text();
+  if (response.ok && !looksLikeCloudflareChallenge(html)) return html;
+
+  const mirrorUrl = `https://r.jina.ai/http://${url.toString().replace(/^https?:\/\//, "")}`;
+  let mirror: Response;
+  try {
+    mirror = await fetch(mirrorUrl, {
+      headers: {"user-agent":"Mozilla/5.0 (compatible; CameronFamilyRecipes/1.0)"},
+      signal: AbortSignal.timeout(12000),
+    });
+  } catch {
+    throw new Error("That recipe page is protected by a bot check, and we couldn't retrieve its readable version. Try a different recipe link or add it manually.");
+  }
+  if (!mirror.ok) {
+    if (!response.ok) throw new Error("That recipe page could not be opened.");
+    throw new Error("We found the page, but it was protected by a bot check. Try a different recipe link or add it manually.");
+  }
+  return await mirror.text();
+}
+
+function recipeCardIngredients(markdown: string): string[] {
+  const lines = markdown.split(/\r?\n/);
+  const servingsIndex = lines.findIndex(line => /^Servings:\s*/i.test(line));
+  if (servingsIndex < 0) return [];
+
+  const ingredients: string[] = [];
+  for (const line of lines.slice(servingsIndex + 1)) {
+    const match = /^\s*[-*]\s+(.+)$/.exec(line);
+    if (!match) continue;
+    const ingredient = match[1].trim();
+    if (!/^\d+(?:\s*[-–]\s*\d+)?(?:\s|$)/.test(ingredient)) {
+      if (ingredients.length) break;
+      continue;
+    }
+    ingredients.push(ingredient);
+  }
+  return ingredients;
+}
+
+function extractRecipeFromReadableText(markdown: string, fallbackHost: string) {
+  const lines = markdown.split(/\r?\n/);
+  const title = lines.find(line => /^Title:\s+/i.test(line))?.replace(/^Title:\s*/i, "")
+    || lines.find(line => /^#\s+/i.test(line))?.replace(/^#\s*/, "")
+    || "";
+
+  const ingredients: string[] = [];
+  const directions: (string | ImportedDirection)[] = [];
+  let section: "ingredients" | "directions" | null = null;
+  let pendingDirectionImage = "";
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    if (/^#+\s*ingredients\s*$/i.test(line) || /^Ingredients\s*$/i.test(line)) {
+      section = "ingredients";
+      pendingDirectionImage = "";
+      continue;
+    }
+    if (/^#+\s*(instructions?|step by step instructions?)\s*$/i.test(line) || /^How to Make\b/i.test(line) || /^Step by Step Instructions\s*$/i.test(line)) {
+      section = "directions";
+      pendingDirectionImage = "";
+      continue;
+    }
+    if (/^#+\s+/.test(line)) {
+      section = null;
+      pendingDirectionImage = "";
+      continue;
+    }
+
+    const ingredientMatch = /^[-*]\s+(.+)/.exec(line) || /^\d+\.\s*[-*]\s*(.+)/.exec(line);
+    if (section === "ingredients" && ingredientMatch) {
+      const ingredient = ingredientMatch[1].replace(/^\d+\.\s*/, "").trim();
+      if (ingredient) ingredients.push(ingredient);
+      continue;
+    }
+
+    if (section === "directions") {
+      const images = [...line.matchAll(/!\[[^\]]*\]\((https?:\/\/[^)\s]+)(?:\s+"[^"]*")?\)/gi)];
+      const image = images[0]?.[1] || "";
+      const withoutImages = line
+        .replace(/!\[[^\]]*\]\(https?:\/\/[^)]+\)/gi, "")
+        .replace(/\[\s*\]\(https?:\/\/[^)]+\)/gi, "")
+        .trim();
+      if (!withoutImages && image) {
+        pendingDirectionImage = image;
+        continue;
+      }
+
+      const directionMatch = /^\d+\.\s+(.+)/.exec(withoutImages) || /^[-*]\s+(.+)/.exec(withoutImages);
+      if (directionMatch) {
+        const direction = directionMatch[1].replace(/^\d+\.\s*/, "").trim();
+        const directionImage = image || pendingDirectionImage;
+        if (direction) directions.push(directionImage ? {text: direction, image: directionImage} : direction);
+        pendingDirectionImage = "";
+        continue;
+      }
+      pendingDirectionImage = "";
+    }
+  }
+
+  const cardIngredients = recipeCardIngredients(markdown);
+  if (cardIngredients.length) ingredients.splice(0, ingredients.length, ...cardIngredients);
+
+  const imageMatch = markdown.match(/!\[[^\]]*\]\((https?:\/\/[^)]+)\)/i) || markdown.match(/https?:\/\/[^\s)]+\.(?:png|jpe?g|webp|gif)/i);
+  const image = imageMatch ? (imageMatch[1] || imageMatch[0]) : "";
+
+  if (!title || !ingredients.length) return null;
+
+  return {
+    title: title.trim(),
+    ingredients,
+    image,
+    directions,
+    sourceName: fallbackHost.replace(/^www\./, ""),
+  };
+}
+
 // Some sites (e.g. Jetpack/WordPress.com's built-in recipe block, used by Smitten
 // Kitchen and others) mark recipes up with schema.org microdata (itemprop
 // attributes) instead of a JSON-LD <script> block. Extract from that as a fallback
@@ -225,13 +355,12 @@ export async function POST(request: Request) {
     const url = new URL(body.url || "");
     if (!/^https?:$/.test(url.protocol)) return Response.json({error:"Please enter a valid recipe URL."},{status:400});
 
-    const response = await fetch(url, {
-      headers: {"user-agent":"Mozilla/5.0 (compatible; CameronFamilyRecipes/1.0)"},
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!response.ok) throw new Error("That recipe page could not be opened.");
-    const html = await response.text();
+    const html = await fetchRecipePage(url);
     if (!html.trim().startsWith("<")) {
+      const mirrorRecipe = extractRecipeFromReadableText(html, url.hostname);
+      if (mirrorRecipe) {
+        return Response.json(mirrorRecipe);
+      }
       return Response.json({error:"That page didn't return normal HTML. Try a different recipe link or add it manually."},{status:422});
     }
     const blocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
@@ -262,6 +391,8 @@ export async function POST(request: Request) {
         const marthaStewart = extractMarthaStewartRecipe(html);
         if (marthaStewart) return Response.json(marthaStewart);
       }
+      const readableFallback = extractRecipeFromReadableText(html, url.hostname);
+      if (readableFallback) return Response.json(readableFallback);
       return Response.json({
         error: sawLdJson
           ? "We found recipe metadata, but couldn't read it. Try a different recipe link or add it manually."
