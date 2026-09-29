@@ -74,13 +74,15 @@ export async function fetchWeeklyPlan(weekKey: string) {
   return plan && !plan.error ? plan : null;
 }
 
-export async function saveWeeklyPlan(weekKey: string, plan: { selected_recipes: string[]; servings: Record<string, number>; chefs: Record<string, string>; days: Record<string, string> }) {
+export async function saveWeeklyPlan(weekKey: string, plan: { selected_recipes: string[]; done_recipes: string[]; servings: Record<string, number>; chefs: Record<string, string>; days: Record<string, string> }) {
   const response = await fetch(`/api/plans/${encodeURIComponent(weekKey)}`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(plan),
   });
-  return await response.json();
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to save weekly plan");
+  return data;
 }
 
 export async function toggleShoppingItem(id: string, checked: boolean) {

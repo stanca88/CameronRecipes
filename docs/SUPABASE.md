@@ -50,12 +50,13 @@ different existing column types or constraints.
 | Table | Purpose | Record identity |
 |---|---|---|
 | `recipes` | Shared recipe content and source details | Text recipe ID |
-| `weekly_plans` | Recipes, servings, chefs, and dates for a Sunday-based week | `YYYY-MM-DD` Sunday key |
+| `weekly_plans` | Recipes, completed dinners, servings, chefs, and dates for a Sunday-based week | `YYYY-MM-DD` Sunday key |
 | `shopping_list` | Generated categorized ingredients and checked state | UUID plus unique week/item key |
 | `meal_history` | Archived completed weeks | Text history ID |
 
 Ingredients and directions are JSON arrays. Weekly-plan selections are a JSON
-array, while servings, chefs, and days are JSON objects keyed by recipe ID.
+array, completed dinner IDs are a separate `done_recipes` JSON array, while
+servings, chefs, and days are JSON objects keyed by recipe ID.
 Archived meals are stored as a JSON array so history remains intact if a live
 recipe is later deleted.
 
@@ -87,6 +88,11 @@ For every future database change:
 4. Apply the change to a non-production project first when possible.
 5. Verify existing recipe, plan, shopping-list, and history flows.
 6. Never delete production tables or columns merely to make a migration pass.
+
+For existing projects, apply the non-destructive
+`supabase/migrations/20260928_done_recipes.sql` migration before deploying
+the weekly dinner completion feature. Back up the database first. The default
+empty array keeps existing plans pending until a dinner is marked done.
 
 ## Application Mapping
 
