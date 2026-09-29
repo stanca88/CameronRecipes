@@ -28,12 +28,14 @@ create table if not exists public.recipes (
 create table if not exists public.weekly_plans (
   week_key text primary key,
   selected_recipes jsonb not null default '[]'::jsonb,
+  done_recipes jsonb not null default '[]'::jsonb,
   servings jsonb not null default '{}'::jsonb,
   chefs jsonb not null default '{}'::jsonb,
   days jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint weekly_plans_selected_array check (jsonb_typeof(selected_recipes) = 'array'),
+  constraint weekly_plans_done_array check (jsonb_typeof(done_recipes) = 'array'),
   constraint weekly_plans_servings_object check (jsonb_typeof(servings) = 'object'),
   constraint weekly_plans_chefs_object check (jsonb_typeof(chefs) = 'object'),
   constraint weekly_plans_days_object check (jsonb_typeof(days) = 'object')

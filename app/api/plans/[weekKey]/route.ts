@@ -28,16 +28,22 @@ export async function PUT(
   context: { params: Promise<{ weekKey: string }> }
 ) {
   try {
+    const { weekKey } = await context.params;
+    const { selected_recipes, done_recipes, servings, chefs, days } = await request.json();
+    if (!Array.isArray(selected_recipes) || !selected_recipes.every((id: unknown) => typeof id === "string")
+      || !Array.isArray(done_recipes) || !done_recipes.every((id: unknown) => typeof id === "string")
+      || done_recipes.some((id: string) => !selected_recipes.includes(id))) {
+      return Response.json({ error: "Invalid weekly dinner selections" }, { status: 400 });
+    }
     const supabase = getSupabaseClient();
     if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
-    const { weekKey } = await context.params;
-    const { selected_recipes, servings, chefs, days } = await request.json();
     
     const { data, error } = await supabase
       .from("weekly_plans")
       .upsert({
         week_key: weekKey,
         selected_recipes,
+        done_recipes,
         servings,
         chefs,
         days,
