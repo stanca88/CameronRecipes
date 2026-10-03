@@ -150,6 +150,10 @@ The product must support separate plans for this week and next week.
   committed, without moving a card while the user is typing.
 - Let users open a planned recipe directly from its card.
 - Preserve each recipe's servings, date, and chef assignment for that week.
+- Let users mark a planned dinner done and move it from `To make` to `Done`
+  for that week, with a way to move it back. Keep completed dinners in the
+  weekly plan and shopping-list calculations until they are removed.
+- Synchronize each week's completed dinners across devices.
 
 ### FR-6: Servings
 

@@ -56,6 +56,8 @@ different existing column types or constraints.
 
 Ingredients and directions are JSON arrays. Weekly-plan selections are a JSON
 array, while servings, chefs, and days are JSON objects keyed by recipe ID.
+Completed dinner IDs are stored under a namespaced metadata key in the existing
+`days` object, so no database schema change is required.
 Archived meals are stored as a JSON array so history remains intact if a live
 recipe is later deleted.
 

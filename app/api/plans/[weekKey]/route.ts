@@ -1,5 +1,6 @@
 import { getErrorMessage } from "@/app/lib/errors";
 import { getSupabaseClient } from "@/app/lib/supabase";
+import { readDoneRecipes, selectedDoneRecipes, withDoneRecipes } from "@/app/lib/weekly-plan";
 
 export async function GET(
   _request: Request,
@@ -28,10 +29,18 @@ export async function PUT(
   context: { params: Promise<{ weekKey: string }> }
 ) {
   try {
-    const supabase = getSupabaseClient();
-    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     const { weekKey } = await context.params;
     const { selected_recipes, servings, chefs, days } = await request.json();
+    const planDays = days ?? {};
+    const done_recipes = readDoneRecipes(planDays);
+    if (!Array.isArray(selected_recipes) || !selected_recipes.every((id: unknown) => typeof id === "string")
+      || !Array.isArray(done_recipes) || !done_recipes.every((id: unknown) => typeof id === "string")
+      || JSON.stringify(done_recipes) !== JSON.stringify(selectedDoneRecipes(selected_recipes, done_recipes))
+      || typeof planDays !== "object" || Array.isArray(planDays)) {
+      return Response.json({ error: "Invalid weekly dinner selections" }, { status: 400 });
+    }
+    const supabase = getSupabaseClient();
+    if (!supabase) return Response.json({ error: "Missing Supabase credentials" }, { status: 500 });
     
     const { data, error } = await supabase
       .from("weekly_plans")
@@ -40,7 +49,7 @@ export async function PUT(
         selected_recipes,
         servings,
         chefs,
-        days,
+        days: withDoneRecipes(planDays, selected_recipes, done_recipes),
       }, { onConflict: "week_key" })
       .select()
       .single();

@@ -1,3 +1,5 @@
+import { withDoneRecipes } from "@/app/lib/weekly-plan";
+
 // Polling-based sync (real-time subscriptions can be added later)
 export function subscribeToShoppingList(
   weekKey: string,
@@ -74,13 +76,19 @@ export async function fetchWeeklyPlan(weekKey: string) {
   return plan && !plan.error ? plan : null;
 }
 
-export async function saveWeeklyPlan(weekKey: string, plan: { selected_recipes: string[]; servings: Record<string, number>; chefs: Record<string, string>; days: Record<string, string> }) {
+export async function saveWeeklyPlan(weekKey: string, plan: { selected_recipes: string[]; done_recipes: string[]; servings: Record<string, number>; chefs: Record<string, string>; days: Record<string, string> }) {
+  const { done_recipes, ...storedPlan } = plan;
   const response = await fetch(`/api/plans/${encodeURIComponent(weekKey)}`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(plan),
+    body: JSON.stringify({
+      ...storedPlan,
+      days: withDoneRecipes(plan.days, plan.selected_recipes, done_recipes),
+    }),
   });
-  return await response.json();
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Failed to save weekly plan");
+  return data;
 }
 
 export async function toggleShoppingItem(id: string, checked: boolean) {
