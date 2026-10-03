@@ -16,7 +16,7 @@ after(async () => {
   await vite.close();
 });
 
-const { selectedDoneRecipes, toggleDoneRecipe } = await vite.ssrLoadModule(
+const { planDays, readDoneRecipes, selectedDoneRecipes, toggleDoneRecipe, withDoneRecipes } = await vite.ssrLoadModule(
   "/app/lib/weekly-plan.ts",
 );
 
@@ -35,6 +35,13 @@ test("done dinners stay scoped to selected recipes in each week", () => {
   assert.deepEqual(toggleDoneRecipe(["soup"], ["tacos"], "tacos"), []);
 });
 
+test("done status round-trips within existing days metadata without exposing it as a weekday", () => {
+  const stored = withDoneRecipes({ tacos: "Monday" }, ["tacos", "soup"], ["tacos", "not-selected"]);
+  assert.deepEqual(readDoneRecipes(stored), ["tacos"]);
+  assert.deepEqual(planDays(stored), { tacos: "Monday" });
+  assert.deepEqual(readDoneRecipes({ soup: "Tuesday" }), []);
+});
+
 test("plan API rejects done dinners not selected for that week", async () => {
   const { PUT } = await vite.ssrLoadModule("/app/api/plans/[weekKey]/route.ts");
   const response = await PUT(
@@ -43,10 +50,9 @@ test("plan API rejects done dinners not selected for that week", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         selected_recipes: ["soup"],
-        done_recipes: ["tacos"],
         servings: {},
         chefs: {},
-        days: {},
+        days: { __cameron_done_recipe_ids_v1: JSON.stringify(["tacos"]) },
       }),
     }),
     { params: Promise.resolve({ weekKey: "2026-09-27" }) },

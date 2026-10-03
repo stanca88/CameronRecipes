@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { subscribeToShoppingList, subscribeToGlobalShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan, subscribeToHistory, fetchHistory, saveHistoryWeek } from "@/app/lib/realtime";
-import { selectedDoneRecipes, toggleDoneRecipe } from "@/app/lib/weekly-plan";
+import { planDays, readDoneRecipes, selectedDoneRecipes, toggleDoneRecipe } from "@/app/lib/weekly-plan";
 
 type Ingredient = { name: string; amount: number; unit: string; category: string; hasQty?: boolean };
 type DirectionStep = { text: string; image?: string };
@@ -678,11 +678,11 @@ export default function Home() {
       const local=all[weekKeyToUpdate]||emptyPlan();
       const merged:WeeklyPlan={
         selected:Array.isArray(remote.selected_recipes)?remote.selected_recipes:[],
-        done:selectedDoneRecipes(Array.isArray(remote.selected_recipes)?remote.selected_recipes:[],remote.done_recipes),
+        done:selectedDoneRecipes(Array.isArray(remote.selected_recipes)?remote.selected_recipes:[],readDoneRecipes(remote.days)),
         servings:remote.servings||{},
         checked:local.checked,
         chefs:remote.chefs||{},
-        days:remote.days||{},
+        days:planDays(remote.days),
       };
       if(JSON.stringify(merged)===JSON.stringify(local))return all;
       return{...all,[weekKeyToUpdate]:merged};
