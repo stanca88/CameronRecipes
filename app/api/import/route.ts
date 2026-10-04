@@ -93,6 +93,32 @@ function instructionText(value:unknown):(string | ImportedDirection)[] {
   return instructionText(object.itemListElement);
 }
 
+function normalizeStepText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+// Many recipe plugins (WP Recipe Maker, Tasty) put step photos only in the
+// page HTML, not in the JSON-LD instructions, so match them back by step text.
+function addStepImagesFromHtml(directions: (string | ImportedDirection)[], html: string, pageUrl: URL) {
+  const htmlSteps = [...html.matchAll(/<li\b[^>]*class=["'][^"']*instruction[^"']*["'][^>]*>([\s\S]*?)<\/li>/gi)]
+    .map(match => {
+      const imgTag = /<img\b[^>]*>/i.exec(match[1])?.[0] || "";
+      const src = /(?:data-lazy-src|data-src|src)=["'](?!data:)([^"']+)["']/i.exec(imgTag)?.[1];
+      let image = "";
+      try { image = src ? new URL(decode(src), pageUrl).href : ""; } catch { image = ""; }
+      return { text: normalizeStepText(stripTags(match[1])), image };
+    })
+    .filter(step => step.text && step.image);
+  if (!htmlSteps.length) return directions;
+  return directions.map(step => {
+    if (typeof step !== "string" && step.image) return step;
+    const text = typeof step === "string" ? step : step.text;
+    const key = normalizeStepText(text).slice(0, 40);
+    const match = key && htmlSteps.find(candidate => candidate.text.startsWith(key) || candidate.text.includes(key));
+    return match ? { text, image: match.image } : step;
+  });
+}
+
 function publisherName(value: unknown): string {
   if (typeof value === "string") return decode(value).trim();
   if (Array.isArray(value)) return publisherName(value[0]);
@@ -404,7 +430,7 @@ export async function POST(request: Request) {
       ? recipe.recipeIngredient.filter((item): item is string => typeof item === "string").map(item=>decode(item).trim())
       : [];
     const image = recipeImage(recipe.image) || metaContent(html, "og:image");
-    const directions = instructionText(recipe.recipeInstructions);
+    const directions = addStepImagesFromHtml(instructionText(recipe.recipeInstructions), html, url);
     if (!title || !ingredients.length) return Response.json({error:"We found the page, but its title or ingredients were missing. You can still use Add manually."},{status:422});
     const sourceName = publisherName(recipe.publisher) || url.hostname.replace(/^www\./, "");
     return Response.json({title,ingredients,image,directions,sourceName});
