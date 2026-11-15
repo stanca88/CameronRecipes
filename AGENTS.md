@@ -3,9 +3,10 @@
 Use this file when asking another coding agent to update the Cameron Family
 Recipes website.
 
-Read `PRODUCT_REQUIREMENTS.md` before changing product behavior. It is the
-human-readable source of truth for the product's purpose, current requirements,
-experience standards, constraints, and release acceptance criteria.
+Before changing product behavior or UI, read `PRODUCT_REQUIREMENTS.md` and
+`docs/EXPERIENCE_ARCHITECTURE.md`. The requirements define what the product
+does; the experience architecture records the established screen hierarchy,
+navigation, control placement, and interaction patterns that must be preserved.
 
 ## Project
 
@@ -63,17 +64,22 @@ Attach this file to the agent and provide the requested change after this
 prompt:
 
 > Work on the Cameron Family Recipes repository and implement the update I
-> describe below. Read and follow `PRODUCT_REQUIREMENTS.md` and `AGENTS.md`.
+> describe below. Read and follow `PRODUCT_REQUIREMENTS.md`,
+> `docs/EXPERIENCE_ARCHITECTURE.md`, and `AGENTS.md`.
 > Inspect the existing implementation before editing, preserve unrelated
-> behavior, and match the current visual style. Verify the change with the
-> repository's existing checks. Create a focused commit and pull request, merge
-> it only after the checks pass, and confirm the Vercel deployment on `main`
+> behavior and control placement, and match the current visual style. Verify
+> the change with the repository's existing checks. Create a focused commit
+> and pull request, merge it only after the checks pass, and confirm the
+> Vercel deployment on `main`
 > succeeds before saying the update is live.
 >
 > Requested update: [DESCRIBE THE CHANGE HERE]
 
 ## Important Files
 
+- `PRODUCT_REQUIREMENTS.md`: current product requirements and experience standards
+- `docs/EXPERIENCE_ARCHITECTURE.md`: stable screen hierarchy, control placement,
+  interaction patterns, and change-safety contract
 - `app/page.tsx`: primary website interface and most UI/state behavior
 - `app/layout.tsx`: page structure and metadata
 - `app/api/import/route.ts`: imports recipe details from public recipe URLs
@@ -120,17 +126,25 @@ deployed preview or production site after deployment.
 1. Start from the latest `main` branch and work on a separate branch.
 2. Inspect the relevant code before making changes; do not rewrite unrelated
    areas.
-3. Preserve recipe importing, recipe persistence, weekly planning, shopping
+3. Preserve established screen hierarchy, navigation, control order, and
+   control placement. Do not move, reorder, hide, remove, or duplicate existing
+   controls as incidental cleanup or visual polish. Make a structural change
+   only when the user explicitly requests it; ask before making one that is
+   necessary but not requested.
+4. Update both `PRODUCT_REQUIREMENTS.md` and
+   `docs/EXPERIENCE_ARCHITECTURE.md` when an approved change alters behavior or
+   an established experience invariant.
+5. Preserve recipe importing, recipe persistence, weekly planning, shopping
    lists, and browser local-storage behavior unless the request explicitly
    changes them.
-4. Keep layouts responsive. Check both desktop and a phone-sized viewport.
-5. Keep mobile ingredients, directions, and shopping-list text easy to read and
+6. Keep layouts responsive. Check both desktop and a phone-sized viewport.
+7. Keep mobile ingredients, directions, and shopping-list text easy to read and
    touch targets easy to use.
-6. Use clear, complete unit names in ingredient phrases, such as `cups`,
+8. Use clear, complete unit names in ingredient phrases, such as `cups`,
    `tablespoons`, and `teaspoons`. Do not display ambiguous quantities.
-7. Do not silently ignore failures. Show or log errors using the patterns
+9. Do not silently ignore failures. Show or log errors using the patterns
    already present in the project.
-8. Do not commit generated output, local runtime data, dependency directories,
+10. Do not commit generated output, local runtime data, dependency directories,
    or environment files.
 
 ## Verification

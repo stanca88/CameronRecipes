@@ -18,12 +18,17 @@ import { MOCK_RECIPES } from "@/app/lib/mock-recipes";
 type Ingredient = { name: string; amount: number; unit: string; category: string; hasQty?: boolean };
 type DirectionStep = { text: string; image?: string };
 type Recipe = { id: string; title: string; emoji: string; time: string; serves: number; author: string; ingredients: Ingredient[]; image?: string; directions?: (string | DirectionStep)[]; sourceUrl?: string; sourceName?: string; tag?: string };
+type RecipeEditDrafts = {
+  details?: { title: string; tag: string; image: string; sourceUrl: string; sourceName: string };
+  ingredients?: string;
+  directions?: { steps: { text: string; image: string }[] };
+};
 type WeeklyPlan = { selected: string[]; done: string[]; servings: Record<string,number>; checked: string[]; chefs: Record<string,string>; days: Record<string,string> };
 type SavedWeek = { id: string; label: string; savedAt: string; meals: { id: string; title: string; emoji: string; people: number; chef?: string; day?: string }[] };
 type ShoppingItem = { id: string; ingredient_key: string; ingredient_name: string; ingredient_amount: number; ingredient_unit: string; ingredient_category: string; checked: boolean };
 
-function BackButton({ onClick }: { onClick: () => void }) {
-  return <Button type="button" onClick={onClick} aria-label="Back" className="h-11 shrink-0 gap-1.5 rounded-lg border-0 bg-[#111613] px-4 text-sm font-semibold text-white hover:bg-[#2d3b32] hover:text-white sm:h-9"><ArrowLeft size={18}/><span>Back</span></Button>;
+function BackButton({ onClick, disabled=false }: { onClick: () => void; disabled?: boolean }) {
+  return <Button type="button" onClick={onClick} disabled={disabled} aria-label="Back" className="h-11 shrink-0 gap-1.5 rounded-lg border-0 bg-[#111613] px-4 text-sm font-semibold text-white hover:bg-[#2d3b32] hover:text-white disabled:opacity-50 sm:h-9"><ArrowLeft size={18}/><span>Back</span></Button>;
 }
 
 const starterRecipes: Recipe[] = [
@@ -432,10 +437,11 @@ export default function Home() {
   const [imageUrl,setImageUrl]=useState("");
   const [sourceName,setSourceName]=useState("");
   const [tag,setTag]=useState("");
-  const [editingRecipeId,setEditingRecipeId]=useState<string|null>(null);
+  const [recipeEditDrafts,setRecipeEditDrafts]=useState<RecipeEditDrafts>({});
+  const [savingRecipeEdits,setSavingRecipeEdits]=useState(false);
+  const [recipeEditError,setRecipeEditError]=useState("");
   const [activeRecipe,setActiveRecipe]=useState<Recipe|null>(null);
   const [recipeToDelete,setRecipeToDelete]=useState<Recipe|null>(null);
-  const [ingredientsCollapsed,setIngredientsCollapsed]=useState(false);
   const [recipeTab,setRecipeTab]=useState<"ingredients"|"directions">("ingredients");
   const [checkedIngredients,setCheckedIngredients]=useState<Record<string,number[]>>({});
   const [ingredientSectionsCollapsed,setIngredientSectionsCollapsed]=useState<Record<"toUse"|"used",boolean>>({toUse:false,used:false});
@@ -711,7 +717,7 @@ export default function Home() {
 
   const toggle=(id:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();const adding=!plan.selected.includes(id);return{...all,[activeWeekKey]:{...plan,selected:adding?[...plan.selected,id]:plan.selected.filter(recipeId=>recipeId!==id),done:adding?(plan.done||[]):(plan.done||[]).filter(recipeId=>recipeId!==id),servings:{...plan.servings,[id]:plan.servings[id]||4},checked:adding&&plan.selected.length===0?[]:plan.checked}}});
   const changeServings=(id:string,delta:number)=>setServings(v=>({...v,[id]:Math.max(1,(v[id]||4)+delta)}));
-  const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setRecipeTab("ingredients");setIngredientsCollapsed(false);setCompletedSteps([]);window.scrollTo({top:0,behavior:"smooth"})};
+  const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setRecipeEditDrafts({});setRecipeEditError("");setRecipeTab("ingredients");setCompletedSteps([]);window.scrollTo({top:0,behavior:"smooth"})};
   const toggleStepDone=(index:number)=>{setCompletedSteps(prev=>prev.includes(index)?prev.filter(i=>i!==index):[...prev,index])};
   const toggleIngredientDone=(recipeId:string,index:number)=>{
     setCheckedIngredients(previous=>{
@@ -720,7 +726,8 @@ export default function Home() {
       return {...previous,[recipeId]:Array.from(current)};
     });
   };
-  const parsedIngredients=()=>ingredients.split("\n").filter(Boolean).map(parseIngredientLine);
+  const parseIngredientLines=(value:string)=>value.split("\n").map(line=>line.trim()).filter(Boolean).map(parseIngredientLine);
+  const parsedIngredients=()=>parseIngredientLines(ingredients);
   const resolveStepImages=async(images:(string|undefined)[])=>Promise.all(images.map(async image=>{
     if(!image||!/(^|\.)flickr\.com\//i.test(image))return image;
     try{
@@ -730,18 +737,73 @@ export default function Home() {
       return typeof data.url==="string"&&data.url?data.url:image;
     }catch{return image}
   }));
-  const resetAdd=()=>{setTitle("");setUrl("");setIngredients("");setDirections("");setDirectionImages([]);setImageUrl("");setSourceName("");setTag("");setAddMode("url");setImportError("");setImporting(false);setEditingRecipeId(null)};
-  const openEditRecipe=(recipe:Recipe)=>{setEditingRecipeId(recipe.id);setTitle(recipe.title);setUrl(recipe.sourceUrl||"");setSourceName(recipe.sourceName||"");setTag(recipe.tag||"");setImageUrl(recipe.image||"");setIngredients((recipe.ingredients||[]).map(ingredientLineFor).join("\n"));setDirections((recipe.directions||[]).map(directionText).join("\n"));setDirectionImages((recipe.directions||[]).map(directionImage));setAddMode("manual");setSaveError("");setOpen(true)};
-  const saveRecipe=async()=>{if(!title.trim()){setSaveError("Add a recipe name before saving.");return}setSavingRecipe(true);setSaveError("");
-    if(editingRecipeId){
-      const id=editingRecipeId;
-      const resolvedImages=await resolveStepImages(directionImages);
-      const updatedDirections=directions.split("\n").map(x=>x.trim()).filter(Boolean).map((text,index)=>resolvedImages[index]?{text,image:resolvedImages[index]}:text);
-      const updated={title:title.trim(),...(tag.trim()?{tag:tag.trim()}:{}),ingredients:parsedIngredients(),directions:updatedDirections,image:imageUrl||undefined,source_url:url||undefined,source_name:sourceName||undefined};
-      try{const response=await fetch(`/api/recipes/${id}`,{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(updated)});if(!response.ok){const data=await response.json().catch(()=>null);throw new Error(data?.error||"Failed to save recipe changes")}const saved=await syncNow();if(saved){resetAdd();setOpen(false);setActiveRecipe(prev=>prev&&prev.id===id?{...prev,title:updated.title,tag:updated.tag||undefined,ingredients:updated.ingredients,directions:updated.directions,image:updated.image,sourceUrl:updated.source_url,sourceName:updated.source_name}:prev)}else{throw new Error("Could not refresh recipes after saving.")}}catch(error){setSaveError(error instanceof Error?error.message:"Failed to save recipe changes");console.error("Failed to save recipe changes:",error)}finally{setSavingRecipe(false)}
-      return;
+  const beginRecipeEdit=(recipe:Recipe|null=activeRecipe)=>{
+    if(!recipe)return;
+    const sameRecipe=activeRecipe?.id===recipe.id;
+    if(!sameRecipe){setActiveRecipe(recipe);setRecipeTab("ingredients");setCompletedSteps([]);window.scrollTo({top:0,behavior:"smooth"})}
+    setRecipeEditDrafts({
+      details:{title:recipe.title,tag:recipe.tag||"",image:recipe.image||"",sourceUrl:recipe.sourceUrl||"",sourceName:recipe.sourceName||""},
+      ingredients:(recipe.ingredients||[]).map(ingredientLineFor).join("\n"),
+      directions:{steps:(recipe.directions||[]).map(step=>({text:directionText(step),image:directionImage(step)||""}))},
+    });
+    setRecipeEditError("");
+  };
+  const updateDirectionDraft=(index:number,field:"text"|"image",value:string)=>{
+    setRecipeEditDrafts(previous=>{
+      if(!previous.directions)return previous;
+      const steps=[...previous.directions.steps];
+      steps[index]={...steps[index],[field]:value};
+      return{...previous,directions:{steps}};
+    });
+  };
+  const addDirectionDraftStep=()=>setRecipeEditDrafts(previous=>previous.directions?{...previous,directions:{steps:[...previous.directions.steps,{text:"",image:""}]}}:previous);
+  const removeDirectionDraftStep=(index:number)=>setRecipeEditDrafts(previous=>previous.directions?{...previous,directions:{steps:previous.directions.steps.filter((_,stepIndex)=>stepIndex!==index)}}:previous);
+  const cancelRecipeEdit=()=>{setRecipeEditDrafts({});setRecipeEditError("")};
+  const saveRecipeEdits=async()=>{
+    const recipe=activeRecipe;
+    const draft=recipeEditDrafts;
+    if(!recipe||savingRecipeEdits||!draft.details||draft.ingredients===undefined||!draft.directions)return;
+    if(!draft.details.title.trim()){setRecipeEditError("Add a recipe name before saving.");return}
+    setSavingRecipeEdits(true);
+    setRecipeEditError("");
+    try{
+      const details=draft.details;
+      const ingredients=parseIngredientLines(draft.ingredients);
+      const resolvedImages=await resolveStepImages(draft.directions.steps.map(step=>step.image||undefined));
+      const directions=draft.directions.steps.reduce<(string|DirectionStep)[]>((steps,step,index)=>{
+        const text=step.text.trim();
+        if(!text)return steps;
+        const image=resolvedImages[index];
+        steps.push(image?{text,image}:text);
+        return steps;
+      },[]);
+      const title=details.title.trim();
+      const tag=details.tag.trim()||undefined;
+      const image=details.image.trim()||undefined;
+      const sourceUrl=details.sourceUrl.trim()||undefined;
+      const sourceName=details.sourceName.trim()||undefined;
+      const updatedFields:Partial<Recipe>={title,tag,image,sourceUrl,sourceName,ingredients,directions};
+      if(!mockRecipePreview){
+        const response=await fetch(`/api/recipes/${recipe.id}`,{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({title,tag:tag||null,image:image||null,source_url:sourceUrl||null,source_name:sourceName||null,ingredients,directions})});
+        if(!response.ok){const data=await response.json().catch(()=>null);throw new Error(data?.error||"Failed to save recipe changes")}
+        if(!await syncNow())throw new Error("Could not refresh recipes after saving.");
+      }
+      setRecipes(previous=>previous.map(current=>current.id===recipe.id?{...current,...updatedFields}:current));
+      setActiveRecipe(previous=>previous&&previous.id===recipe.id?{...previous,...updatedFields}:previous);
+      setCheckedIngredients(previous=>({...previous,[recipe.id]:[]}));
+      setCompletedSteps([]);
+      setRecipeEditDrafts({});
+    }catch(error){
+      const message=error instanceof Error?error.message:"Failed to save recipe changes";
+      setRecipeEditError(message);
+      console.error("Failed to save recipe changes:",error);
+    }finally{
+      setSavingRecipeEdits(false);
     }
-    const id=crypto.randomUUID();const resolvedImages=await resolveStepImages(directionImages);const newDirections=directions.split("\n").map(x=>x.trim()).filter(Boolean).map((text,index)=>resolvedImages[index]?{text,image:resolvedImages[index]}:text);const newRecipe={id,title:title.trim(),tag:tag.trim()||undefined,emoji:"🍽️",time:"Family recipe",serves:4,author:"Family",ingredients:parsedIngredients(),directions:newDirections,image:imageUrl||undefined,sourceUrl:url||undefined,sourceName:sourceName||undefined};try{const response=await fetch("/api/recipes",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id,title:newRecipe.title,tag:newRecipe.tag,emoji:newRecipe.emoji,time:newRecipe.time,serves:newRecipe.serves,author:newRecipe.author,ingredients:newRecipe.ingredients,directions:newRecipe.directions,image:newRecipe.image,source_url:newRecipe.sourceUrl,source_name:newRecipe.sourceName})});if(!response.ok){const data=await response.json().catch(()=>null);throw new Error(data?.error||"Failed to save recipe to database")}const saved=await syncNow();if(saved){setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,selected:[...plan.selected,id],servings:{...plan.servings,[id]:4},checked:plan.selected.length===0?[]:plan.checked}}});resetAdd();setOpen(false);setView("plan")}else{throw new Error("Could not refresh recipes after saving.")}}catch(error){setSaveError(error instanceof Error?error.message:"Failed to save recipe to database");console.error("Failed to save recipe to database:",error)}finally{setSavingRecipe(false)}};
+  };
+  const openEditRecipe=(recipe:Recipe)=>beginRecipeEdit(recipe);
+  const resetAdd=()=>{setTitle("");setUrl("");setIngredients("");setDirections("");setDirectionImages([]);setImageUrl("");setSourceName("");setTag("");setAddMode("url");setImportError("");setImporting(false)};
+  const saveRecipe=async()=>{if(!title.trim()){setSaveError("Add a recipe name before saving.");return}setSavingRecipe(true);setSaveError("");const id=crypto.randomUUID();const resolvedImages=await resolveStepImages(directionImages);const newDirections=directions.split("\n").map(x=>x.trim()).filter(Boolean).map((text,index)=>resolvedImages[index]?{text,image:resolvedImages[index]}:text);const newRecipe={id,title:title.trim(),tag:tag.trim()||undefined,emoji:"🍽️",time:"Family recipe",serves:4,author:"Family",ingredients:parsedIngredients(),directions:newDirections,image:imageUrl||undefined,sourceUrl:url||undefined,sourceName:sourceName||undefined};try{const response=await fetch("/api/recipes",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({id,title:newRecipe.title,tag:newRecipe.tag,emoji:newRecipe.emoji,time:newRecipe.time,serves:newRecipe.serves,author:newRecipe.author,ingredients:newRecipe.ingredients,directions:newRecipe.directions,image:newRecipe.image,source_url:newRecipe.sourceUrl,source_name:newRecipe.sourceName})});if(!response.ok){const data=await response.json().catch(()=>null);throw new Error(data?.error||"Failed to save recipe to database")}const saved=await syncNow();if(saved){setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();return{...all,[activeWeekKey]:{...plan,selected:[...plan.selected,id],servings:{...plan.servings,[id]:4},checked:plan.selected.length===0?[]:plan.checked}}});resetAdd();setOpen(false);setView("plan")}else{throw new Error("Could not refresh recipes after saving.")}}catch(error){setSaveError(error instanceof Error?error.message:"Failed to save recipe to database");console.error("Failed to save recipe to database:",error)}finally{setSavingRecipe(false)}};
   const importRecipe=async()=>{if(!url.trim())return;setImporting(true);setImportError("");try{const response=await fetch("/api/import",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({url})});const data=await response.json();if(!response.ok)throw new Error(data.error||"We couldn't import that recipe.");const importedDirections=(data.directions||[]) as (string|DirectionStep)[];setTitle(data.title||"");setIngredients((data.ingredients||[]).join("\n"));setDirections(importedDirections.map(directionText).join("\n"));setDirectionImages(importedDirections.map(directionImage));setImageUrl(data.image||"");setSourceName(data.sourceName||"");setAddMode("review")}catch(error){setImportError(error instanceof Error?error.message:"We couldn't import that recipe.")}finally{setImporting(false)}};
   const deleteRecipe=async(id:string)=>{try{const response=await fetch(`/api/recipes/${id}`,{method:"DELETE"});if(!response.ok)throw new Error("Failed to delete recipe");await syncNow();setPlans(all=>Object.fromEntries(Object.entries(all).map(([key,plan])=>{const nextServings={...plan.servings};const nextChefs={...(plan.chefs||{})};const nextDays={...(plan.days||{})};delete nextServings[id];delete nextChefs[id];delete nextDays[id];return[key,{...plan,selected:plan.selected.filter(recipeId=>recipeId!==id),done:(plan.done||[]).filter(recipeId=>recipeId!==id),servings:nextServings,chefs:nextChefs,days:nextDays}]})));setActiveRecipe(null)}catch(error){console.error("Failed to delete recipe from database:",error)}};
   const toggleShoppingItemSync=async(itemKey:string,shouldCheck:boolean)=>{setChecked(v=>shouldCheck?[...v,itemKey]:v.filter(x=>x!==itemKey));setShoppingItems(items=>items.map(si=>si.ingredient_key===itemKey?{...si,checked:shouldCheck}:si));const shoppingItem=shoppingItems.find(si=>si.ingredient_key===itemKey);if(shoppingItem){try{await toggleShoppingItem(shoppingItem.id,shouldCheck)}catch(error){console.error("Failed to sync shopping item:",error)}}};
@@ -802,6 +864,10 @@ export default function Home() {
         </Select>
       </div></div></article>)}</div>;
 
+  const editFieldClass="mt-2 min-h-12 rounded-xl border-[#d2e0c1] bg-white px-4 py-3 text-base text-[#151b17] shadow-none placeholder:text-[#707b76] focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15";
+  const editAreaClass="mt-2 min-h-40 rounded-xl border-[#d2e0c1] bg-white px-4 py-3 text-base leading-relaxed text-[#151b17] shadow-none placeholder:text-[#707b76] focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15";
+  const recipeIsEditing=Boolean(recipeEditDrafts.details||recipeEditDrafts.ingredients!==undefined||recipeEditDrafts.directions);
+
   if(open) {
     const fieldClass="mt-2 min-h-14 rounded-xl border-[#d2e0c1] bg-white px-4 py-3 text-base text-[#151b17] shadow-none placeholder:text-[#707b76] focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15";
     const textAreaClass="mt-2 min-h-40 rounded-xl border-[#d2e0c1] bg-white px-4 py-3 text-base leading-relaxed text-[#151b17] shadow-none placeholder:text-[#707b76] focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15";
@@ -812,8 +878,8 @@ export default function Home() {
           <span className="text-right text-xs font-bold uppercase tracking-[.16em] text-[#68766f]">Cameron Family Table</span>
         </div>
         <div className="mb-8">
-          <p className="text-sm font-bold uppercase tracking-[.18em] text-[#111613]">{editingRecipeId?"Edit recipe":"New recipe"}</p>
-          <h1 className="mt-2 font-serif text-4xl font-bold leading-tight sm:text-5xl">{editingRecipeId?"Make it just right":"Add a recipe to the table"}</h1>
+          <p className="text-sm font-bold uppercase tracking-[.18em] text-[#111613]">New recipe</p>
+          <h1 className="mt-2 font-sans text-4xl font-bold leading-tight sm:text-5xl">Add a recipe to the table</h1>
           <p className="mt-3 max-w-xl text-base leading-relaxed text-[#65716b]">{addMode==="url"?"Start with a recipe link, or enter a family favorite yourself.":addMode==="review"?"Check the imported details, then make any changes before saving.":"Tell us about the recipe using the roomy fields below."}</p>
         </div>
         {addMode==="url"&&<section className="rounded-3xl border border-[#d5e0e3] bg-[#ffffff] p-5 shadow-[0_4px_20px_rgba(45,61,50,.05)] sm:p-8">
@@ -834,8 +900,8 @@ export default function Home() {
           <div><label className="block text-base font-bold text-[#111613]">Directions</label><p className="mt-1 text-sm text-[#65716b]">Add one step per line. You can add an image URL to any step.</p><Textarea value={directions} onChange={e=>setDirections(e.target.value)} placeholder={"Heat oven to 375°F\nMix ingredients\nBake until golden"} rows={7} className={textAreaClass}/><div className="mt-4 space-y-3">{directions.split("\n").map((step,index)=>step.trim()?<div key={index} className="rounded-xl border border-[#e0ead1] bg-[#f3f8e9] p-3"><p className="text-sm font-semibold text-[#151b17]">Step {index+1}: {step.trim()}</p><Input value={directionImages[index]||""} onChange={event=>setDirectionImages(previous=>{const next=[...previous];next[index]=event.target.value;return next})} placeholder="Step image URL (optional)" aria-label={`Image URL for step ${index+1}`} className="mt-2 min-h-12 border-[#d2e0c1] bg-white text-sm shadow-none focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15"/></div>:null)}</div></div>
           {addMode==="review"&&<p className="rounded-xl bg-[#eff8dd] p-4 text-sm leading-relaxed text-[#151b17]">Everything is editable before you save it.</p>}
           {saveError&&<p role="alert" className="rounded-xl bg-[#fff0e8] p-4 text-sm leading-relaxed text-[#963f32]">{saveError}</p>}
-          <Button type="button" className="h-14 w-full rounded-xl bg-[#151b17] text-base font-bold text-white hover:bg-[#2d3b32]" disabled={savingRecipe} onClick={saveRecipe}>{savingRecipe?"Saving…":editingRecipeId?"Save changes":`Save and add to ${weekRange(weekOffset)}`}</Button>
-          {!editingRecipeId&&<Button type="button" variant="ghost" className="h-12 w-full rounded-xl text-base font-semibold text-[#151b17] hover:bg-[#eff8dd] hover:text-[#111613]" onClick={()=>setAddMode(addMode==="review"?"url":"url")}>{addMode==="review"?"Use a different link":"Back to recipe link"}</Button>}
+          <Button type="button" className="h-14 w-full rounded-xl bg-[#151b17] text-base font-bold text-white hover:bg-[#2d3b32]" disabled={savingRecipe} onClick={saveRecipe}>{savingRecipe?"Saving…":`Save and add to ${weekRange(weekOffset)}`}</Button>
+          <Button type="button" variant="ghost" className="h-12 w-full rounded-xl text-base font-semibold text-[#151b17] hover:bg-[#eff8dd] hover:text-[#111613]" onClick={()=>setAddMode("url")}>{addMode==="review"?"Use a different link":"Back to recipe link"}</Button>
         </section>}
       </div>
     </main>;
@@ -845,19 +911,44 @@ export default function Home() {
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       {mockRecipePreview&&<p role="status" className="mb-4 rounded-xl border border-[#d2e0c1] bg-[#eff8dd] px-4 py-3 text-sm text-[#151b17]">Sample recipe preview. Changes are temporary and won&apos;t be saved.</p>}
       {activeRecipe ? <article>
-        <div className="mb-5 flex items-center justify-between gap-2">
-          <BackButton onClick={()=>setActiveRecipe(null)}/>
-          <div className="flex min-w-0 gap-2"><Button onClick={()=>toggle(activeRecipe.id)} variant="outline" size="icon" className={`shrink-0 rounded-lg border-[#d5e0e3] bg-white sm:h-9 sm:w-auto sm:px-4 ${selected.includes(activeRecipe.id)?"text-[#111613] hover:bg-[#eaf7d0]":"text-[#111613] hover:bg-[#eff8dd]"}`} aria-label={selected.includes(activeRecipe.id)?`Added to ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}>{selected.includes(activeRecipe.id)?<Check size={18}/>:<Plus size={18}/>}<span className="hidden sm:inline">{selected.includes(activeRecipe.id)?`Added to ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}</span></Button><Button variant="outline" size="icon" className="shrink-0 rounded-lg border-[#d5e0e3] bg-white text-[#111613] hover:bg-[#eff8dd] sm:h-9 sm:w-auto sm:px-3" onClick={()=>openEditRecipe(activeRecipe)} aria-label="Edit"><Pencil size={18}/><span className="hidden sm:inline">Edit</span></Button><Button variant="outline" size="icon" className="shrink-0 rounded-lg border-[#e7aa87] bg-white text-[#963f32] hover:bg-[#fff0e8] hover:text-[#782c24] sm:h-9 sm:w-auto sm:px-3" onClick={()=>setRecipeToDelete(activeRecipe)} aria-label="Delete"><Trash2 size={18}/><span className="hidden sm:inline">Delete</span></Button></div>
+        <div className="mb-5 flex items-center justify-between gap-2 pt-4 sm:pt-3">
+          <BackButton onClick={()=>setActiveRecipe(null)} disabled={recipeIsEditing||savingRecipeEdits}/>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button onClick={()=>toggle(activeRecipe.id)} variant="outline" size="icon" className={`shrink-0 rounded-lg border-[#d5e0e3] bg-white sm:h-9 sm:w-auto sm:px-4 ${selected.includes(activeRecipe.id)?"text-[#111613] hover:bg-[#eaf7d0]":"text-[#111613] hover:bg-[#eff8dd]"}`} aria-label={selected.includes(activeRecipe.id)?`Added to ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}>{selected.includes(activeRecipe.id)?<Check size={18}/>:<Plus size={18}/>}<span className="hidden sm:inline">{selected.includes(activeRecipe.id)?`Added to ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}</span></Button>
+            {recipeIsEditing
+              ? <>
+                  <Button type="button" className="h-11 w-11 shrink-0 rounded-lg bg-[#111613] p-0 text-white hover:bg-[#2d3b32] sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Save recipe changes" disabled={savingRecipeEdits} onClick={saveRecipeEdits}><Check size={18}/><span className="sr-only sm:not-sr-only">{savingRecipeEdits?"Saving…":"Save"}</span></Button>
+                  <Button type="button" variant="outline" className="h-11 w-11 shrink-0 rounded-lg border-[#d5e0e3] p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Cancel recipe changes" disabled={savingRecipeEdits} onClick={cancelRecipeEdit}><X size={18}/><span className="sr-only sm:not-sr-only">Cancel</span></Button>
+                </>
+              : <Button variant="outline" size="icon" className="shrink-0 rounded-lg border-[#d5e0e3] bg-white text-[#111613] hover:bg-[#eff8dd] sm:h-9 sm:w-auto sm:px-3" onClick={()=>openEditRecipe(activeRecipe)} aria-label="Edit"><Pencil size={18}/><span className="hidden sm:inline">Edit</span></Button>}
+            <Button variant="outline" size="icon" className="shrink-0 rounded-lg border-[#e7aa87] bg-white text-[#963f32] hover:bg-[#fff0e8] hover:text-[#782c24] sm:h-9 sm:w-auto sm:px-3" onClick={()=>setRecipeToDelete(activeRecipe)} aria-label="Delete" disabled={recipeIsEditing||savingRecipeEdits}><Trash2 size={18}/><span className="hidden sm:inline">Delete</span></Button>
+          </div>
         </div>
+        {recipeEditError&&<p role="alert" className="mb-5 rounded-xl bg-[#fff0e8] p-4 text-sm text-[#963f32]">{recipeEditError}</p>}
         <div className="overflow-hidden rounded-[1.75rem] border border-[#dce5e8] bg-white">
           {(activeRecipe.image || (activeRecipe.id==="roasted-veg-bowl"?"/veg-bowl.jpg": activeRecipe.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": activeRecipe.id==="beef-stew"?"/beef-stew.jpg":"")) ? <img src={activeRecipe.image || (activeRecipe.id==="roasted-veg-bowl"?"/veg-bowl.jpg": activeRecipe.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": activeRecipe.id==="beef-stew"?"/beef-stew.jpg":"")} alt={activeRecipe.title} className="h-64 w-full object-cover sm:h-80 lg:h-[28rem]"/> : <div className="grid h-56 place-items-center bg-[#eaf7d0] text-8xl">{activeRecipe.emoji}</div>}
           <div className="p-6 sm:p-9 lg:p-12">
             <div className="border-b border-[#dce5e8] pb-8">
-              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[.2em]"><span className="rounded-full bg-[#d6f59a] px-2.5 py-1 text-[#111613]">{recipeTag(activeRecipe)}</span>{activeRecipe.sourceUrl&&<a href={activeRecipe.sourceUrl} target="_blank" rel="noreferrer" className="text-[#151b17] underline decoration-[#151b17]/40 underline-offset-2 hover:decoration-[#151b17]">{activeRecipe.sourceName||"View original recipe"}</a>}</div>
-              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
-                <h2 className="min-w-0 flex-1 font-serif text-3xl font-bold leading-tight sm:text-5xl">{activeRecipe.title}</h2>
-                <div className="mt-6 flex max-w-md shrink-0 items-center justify-between gap-3 rounded-2xl bg-[#edf3f6] p-3 sm:mt-0"><span className="font-medium">Cooking for</span><div className="flex items-center gap-1"><Button size="icon" variant="ghost" className="size-11 rounded-full sm:size-8" onClick={()=>changeServings(activeRecipe.id,-1)}><Minus size={17} className="sm:hidden"/><Minus size={15} className="hidden sm:block"/></Button><strong className="min-w-20 text-center">{servings[activeRecipe.id]||4} people</strong><Button size="icon" variant="ghost" className="size-11 rounded-full sm:size-8" onClick={()=>changeServings(activeRecipe.id,1)}><Plus size={17} className="sm:hidden"/><Plus size={15} className="hidden sm:block"/></Button></div></div>
-              </div>
+              {recipeEditDrafts.details
+                ? <section aria-label="Edit recipe details" className="space-y-4">
+                    <h3 className="font-sans text-2xl font-bold">Recipe details</h3>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block text-sm font-bold sm:col-span-2">Recipe name<Input value={recipeEditDrafts.details.title} onChange={event=>setRecipeEditDrafts(previous=>previous.details?{...previous,details:{...previous.details,title:event.target.value}}:previous)} className={editFieldClass}/></label>
+                      <label className="block text-sm font-bold">Recipe tag<Input value={recipeEditDrafts.details.tag} onChange={event=>setRecipeEditDrafts(previous=>previous.details?{...previous,details:{...previous.details,tag:event.target.value}}:previous)} placeholder="Family recipe" className={editFieldClass}/></label>
+                      <label className="block text-sm font-bold">Photo URL<Input value={recipeEditDrafts.details.image} onChange={event=>setRecipeEditDrafts(previous=>previous.details?{...previous,details:{...previous.details,image:event.target.value}}:previous)} placeholder="https://example.com/photo.jpg" className={editFieldClass}/></label>
+                      <label className="block text-sm font-bold">Recipe link<Input type="url" value={recipeEditDrafts.details.sourceUrl} onChange={event=>setRecipeEditDrafts(previous=>previous.details?{...previous,details:{...previous.details,sourceUrl:event.target.value}}:previous)} placeholder="https://example.com/recipe" className={editFieldClass}/></label>
+                      <label className="block text-sm font-bold">Source name<Input value={recipeEditDrafts.details.sourceName} onChange={event=>setRecipeEditDrafts(previous=>previous.details?{...previous,details:{...previous.details,sourceName:event.target.value}}:previous)} placeholder="Recipe website or family member" className={editFieldClass}/></label>
+                    </div>
+                  </section>
+                : <>
+                    <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[.2em]"><span className="rounded-full bg-[#d6f59a] px-2.5 py-1 text-[#111613]">{recipeTag(activeRecipe)}</span>{activeRecipe.sourceUrl&&<a href={activeRecipe.sourceUrl} target="_blank" rel="noreferrer" className="text-[#151b17] underline decoration-[#151b17]/40 underline-offset-2 hover:decoration-[#151b17]">{activeRecipe.sourceName||"View original recipe"}</a>}</div>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <h2 className="min-w-0 flex-1 font-serif text-3xl font-bold leading-tight sm:text-5xl">{activeRecipe.title}</h2>
+                      </div>
+                      <div className="flex max-w-md shrink-0 items-center justify-between gap-3 rounded-2xl bg-[#edf3f6] p-3"><span className="font-medium">Cooking for</span><div className="flex items-center gap-1"><Button size="icon" variant="ghost" className="size-11 rounded-full sm:size-8" onClick={()=>changeServings(activeRecipe.id,-1)}><Minus size={17} className="sm:hidden"/><Minus size={15} className="hidden sm:block"/></Button><strong className="min-w-20 text-center">{servings[activeRecipe.id]||4} people</strong><Button size="icon" variant="ghost" className="size-11 rounded-full sm:size-8" onClick={()=>changeServings(activeRecipe.id,1)}><Plus size={17} className="sm:hidden"/><Plus size={15} className="hidden sm:block"/></Button></div></div>
+                    </div>
+                  </>}
             </div>
 
             <div className="mt-10">
@@ -866,11 +957,29 @@ export default function Home() {
                 <button type="button" role="tab" aria-selected={recipeTab==="directions"} onClick={()=>setRecipeTab("directions")} className={`rounded-xl px-4 py-3 text-sm font-bold transition ${recipeTab==="directions"?"bg-white text-[#111613] shadow-sm":"text-[#65716b] hover:text-[#111613]"}`}>Directions</button>
               </div>
               {recipeTab==="ingredients"
-                ? <section className="min-w-0"><button onClick={()=>setIngredientsCollapsed(v=>!v)} aria-expanded={!ingredientsCollapsed} aria-controls="ingredients-list" className="flex w-full items-center justify-between gap-3 text-left"><h3 className="font-serif text-2xl font-bold">Ingredients</h3><span aria-label={ingredientsCollapsed?"Expand ingredients":"Collapse ingredients"} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[#d5e0e3] bg-white text-[#111613] hover:bg-[#f1f8e6]">{ingredientsCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!ingredientsCollapsed&&<div id="ingredients-list" className="mt-4 space-y-5">{(["To use","Used"] as const).map((heading,index)=>{const sectionKey=index===0?"toUse":"used";const isCollapsed=ingredientSectionsCollapsed[sectionKey];const items=(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,itemIndex)=>({item:normalizeIngredient(raw),index:itemIndex})).filter(({item,index:itemIndex})=>item&& (index===0?!((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex)):((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex))));return <section key={heading} className="overflow-hidden"><button type="button" onClick={()=>setIngredientSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full items-center justify-between rounded-2xl bg-[#d6f59a] px-4 py-3 text-left hover:bg-[#c9ef78]"><span className="flex items-center gap-2 font-serif text-xl font-bold text-[#151b17]"><span className="grid size-8 place-items-center rounded-full bg-[#d6f59a] text-[#111613]">{index===0?<Plus size={16}/>:<Check size={16}/>}</span>{heading}<span className="text-sm font-sans font-medium text-[#707b76]">({items.length})</span></span><span className="grid size-8 place-items-center text-[#151b17]" aria-hidden="true">{isCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!isCollapsed&&<div className="space-y-1 p-2">{items.map(({item,index:itemIndex})=>{if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);const phrase=formatIngredientPhrase(item,amount);const done=(checkedIngredients[activeRecipe.id]||[]).includes(itemIndex);return <label key={itemIndex} className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl px-2 py-3 text-xl leading-relaxed transition sm:text-base ${done?"text-[#707b76] line-through":"text-[#151b17] hover:bg-[#f4f9ea]"}`}><Checkbox className="size-6 shrink-0 sm:size-5" checked={done} onCheckedChange={()=>toggleIngredientDone(activeRecipe.id,itemIndex)} aria-label={`${done?"Uncheck":"Check off"} ${phrase}`}/><span className="min-w-0 flex-1">{phrase}</span></label>})}{!items.length&&<p className="rounded-xl border border-dashed border-[#d2dfe2] p-5 text-sm text-[#65716b]">{index===0?"Everything is marked used.":"Used ingredients will appear here."}</p>}</div>}</section>})}</div>}</section>
-                : <section className="min-w-0"><h3 className="font-serif text-2xl font-bold">Directions</h3>{activeRecipe.directions?.length?<>
-                  <ol className="mt-5 space-y-2">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);const text=directionText(step);const image=directionImage(step);return <li key={index}><button onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 flex-wrap items-start gap-3 rounded-2xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 ${done?"border-[#d6f59a] bg-[#eaf7d0]":"border-[#d5e0e3] bg-[#ffffff] hover:border-[#d6f59a] hover:bg-[#f4f9ea]"}`}><span className={`mt-1 grid size-7 shrink-0 place-items-center rounded-full text-sm font-semibold text-white ${done?"bg-[#111613]":"border-2 border-[#bbc6c7] bg-transparent text-transparent"}`}>{done&&<Check size={16}/>}</span><span className="min-w-0 flex-1"><p className={`text-lg leading-relaxed sm:text-base ${done?"truncate text-[#68766f] line-through":"text-[#151b17]"}`}>{text}</p>{image&&!done&&<img src={image} alt="" className="mt-3 max-h-72 w-full rounded-xl object-cover" />}</span></button></li>})}</ol>
-                  {completedSteps.length===activeRecipe.directions.length&&<div className="mt-6 rounded-2xl border border-[#d6f59a] bg-[#eaf7d0] p-5 text-center"><Check className="mx-auto mb-2 text-[#111613]"/><p className="font-semibold text-[#111613]">All steps done — enjoy!</p></div>}
-                </>:<p className="mt-4 rounded-xl bg-[#edf3f6] p-4 text-sm text-[#65716b]">Directions weren’t included with this saved recipe. Re-import it from its recipe page to add them.</p>}</section>}
+                ? <section className="min-w-0">
+                    <h3 className="font-sans text-2xl font-bold">Ingredients</h3>
+                    <div id="ingredients-list" className="mt-4">
+                      {recipeEditDrafts.ingredients!==undefined
+                        ? <div><label className="block text-sm font-bold">Ingredients <span className="font-normal text-[#65716b]">· one per line</span><Textarea value={recipeEditDrafts.ingredients} onChange={event=>setRecipeEditDrafts(previous=>previous.ingredients===undefined?previous:{...previous,ingredients:event.target.value})} rows={10} className={editAreaClass}/></label></div>
+                        : <div className="space-y-5">{(["To use","Used"] as const).map((heading,index)=>{const sectionKey=index===0?"toUse":"used";const isCollapsed=ingredientSectionsCollapsed[sectionKey];const items=(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[]).map((raw,itemIndex)=>({item:normalizeIngredient(raw),index:itemIndex})).filter(({item,index:itemIndex})=>item&&(index===0?!((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex)):((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex))));return <section key={heading} className="overflow-hidden"><button type="button" onClick={()=>setIngredientSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full items-center justify-between rounded-2xl bg-[#d6f59a] px-4 py-3 text-left hover:bg-[#c9ef78]"><span className="flex items-center gap-2 font-sans text-xl font-bold text-[#151b17]"><span className="grid size-8 place-items-center rounded-full bg-[#d6f59a] text-[#111613]">{index===0?<Plus size={16}/>:<Check size={16}/>}</span>{heading}<span className="text-sm font-sans font-medium text-[#707b76]">({items.length})</span></span><span className="grid size-8 place-items-center text-[#151b17]" aria-hidden="true">{isCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span></button>{!isCollapsed&&<div className="space-y-1 p-2">{items.map(({item,index:itemIndex})=>{if(!item)return null;const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);const phrase=formatIngredientPhrase(item,amount);const done=(checkedIngredients[activeRecipe.id]||[]).includes(itemIndex);return <label key={itemIndex} className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl px-2 py-3 text-xl leading-relaxed transition sm:text-base ${done?"text-[#707b76] line-through":"text-[#151b17] hover:bg-[#f4f9ea]"}`}><Checkbox className="size-6 shrink-0 sm:size-5" checked={done} onCheckedChange={()=>toggleIngredientDone(activeRecipe.id,itemIndex)} aria-label={`${done?"Uncheck":"Check off"} ${phrase}`}/><span className="min-w-0 flex-1">{phrase}</span></label>})}{!items.length&&<p className="rounded-xl border border-dashed border-[#d2dfe2] p-5 text-sm text-[#65716b]">{index===0?"Everything is marked used.":"Used ingredients will appear here."}</p>}</div>}</section>})}</div>}
+                    </div>
+                  </section>
+                : <section className="min-w-0">
+                    <h3 className="font-sans text-2xl font-bold">Directions</h3>
+                    {recipeEditDrafts.directions
+                      ? <div className="mt-4">
+                          <div className="space-y-4">{recipeEditDrafts.directions.steps.map((step,index)=><div key={index} className="rounded-2xl border border-[#dce5e8] bg-[#f7fafb] p-4">
+                            <div className="flex items-start gap-3"><label className="min-w-0 flex-1 text-sm font-bold">Step {index+1}<Textarea value={step.text} onChange={event=>updateDirectionDraft(index,"text",event.target.value)} rows={3} className="mt-2 min-h-24 rounded-xl border-[#d2e0c1] bg-white px-4 py-3 text-base leading-relaxed text-[#151b17] shadow-none focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15"/></label><Button type="button" variant="outline" size="icon" className="mt-6 size-11 shrink-0 rounded-xl border-[#d5e0e3]" aria-label={`Remove step ${index+1}`} onClick={()=>removeDirectionDraftStep(index)}><X size={18}/></Button></div>
+                            <label className="mt-3 block text-sm font-bold">Step {index+1} image URL <span className="font-normal text-[#65716b]">(optional)</span><Input value={step.image} onChange={event=>updateDirectionDraft(index,"image",event.target.value)} placeholder="https://example.com/step-photo.jpg" className={editFieldClass}/></label>
+                          </div>)}</div>
+                          <Button type="button" variant="outline" className="mt-4 min-h-11 rounded-xl border-[#d5e0e3] px-4" onClick={addDirectionDraftStep}><Plus size={18}/>Add step</Button>
+                        </div>
+                      : activeRecipe.directions?.length?<>
+                          <ol className="mt-5 space-y-2">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);const text=directionText(step);const image=directionImage(step);return <li key={index}><button onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 flex-wrap items-start gap-3 rounded-2xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 ${done?"border-[#d6f59a] bg-[#eaf7d0]":"border-[#d5e0e3] bg-[#ffffff] hover:border-[#d6f59a] hover:bg-[#f4f9ea]"}`}><span className={`mt-1 grid size-7 shrink-0 place-items-center rounded-full text-sm font-semibold text-white ${done?"bg-[#111613]":"border-2 border-[#bbc6c7] bg-transparent text-transparent"}`}>{done&&<Check size={16}/>}</span><span className="min-w-0 flex-1"><p className={`text-lg leading-relaxed sm:text-base ${done?"truncate text-[#68766f] line-through":"text-[#151b17]"}`}>{text}</p>{image&&!done&&<img src={image} alt="" className="mt-3 max-h-72 w-full rounded-xl object-cover"/>}</span></button></li>})}</ol>
+                          {completedSteps.length===activeRecipe.directions.length&&<div className="mt-6 rounded-2xl border border-[#d6f59a] bg-[#eaf7d0] p-5 text-center"><Check className="mx-auto mb-2 text-[#111613]"/><p className="font-semibold text-[#111613]">All steps done — enjoy!</p></div>}
+                        </>:<p className="mt-4 rounded-xl bg-[#edf3f6] p-4 text-sm text-[#65716b]">Directions weren’t included with this saved recipe. Re-import it from its recipe page to add them.</p>}
+                  </section>}
             </div>
           </div>
         </div>
@@ -931,7 +1040,7 @@ export default function Home() {
               </div>
               {recipeGrid(recipes.filter(r=>recipeMatchesQuery(r,planQuery,"")))}
             </div>
-          : <div>{planErrors[activeWeekKey]&&<p role="alert" className="mb-4 rounded-xl bg-[#fff0e8] p-4 text-sm text-[#963f32]">Could not save this week&apos;s dinners: {planErrors[activeWeekKey]}</p>}{selected.length>0&&<><section aria-label="Dinners to make"><h2 className="mb-4 font-serif text-2xl font-bold text-[#111613]">To make <span className="font-sans text-base font-medium text-[#68766f]">({dinnersToMake.length})</span></h2>{dinnersToMake.length?planRecipeGrid(dinnersToMake):<p className="rounded-2xl border border-dashed border-[#d2dfe2] p-5 text-sm text-[#65716b]">All planned dinners are done.</p>}</section><Button type="button" variant="outline" onClick={()=>setPlanPicking(true)} className="mt-4 w-full rounded-2xl border-dashed border-[#d2e0c1] bg-transparent py-6 text-[#151b17] shadow-none hover:bg-[#f1f8e6] hover:text-[#111613]"><Plus size={18}/>Add another recipe</Button>{dinnersDone.length>0&&<section aria-label="Done dinners" className="mt-9"><h2 className="mb-4"><button type="button" aria-expanded={!doneCollapsed} onClick={()=>setDoneCollapsed(v=>!v)} className="flex min-h-11 w-full items-center gap-2 rounded-lg text-left font-serif text-2xl font-bold text-[#111613] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ChevronDown size={22} className={`shrink-0 transition-transform ${doneCollapsed?"-rotate-90":""}`}/>Done <span className="font-sans text-base font-medium text-[#68766f]">({dinnersDone.length})</span></button></h2>{!doneCollapsed&&planRecipeGrid(dinnersDone)}</section>}</>}{selected.length===0&&<div role="button" tabIndex={0} onClick={()=>setPlanPicking(true)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPlanPicking(true)}}} className="cursor-pointer rounded-3xl border border-dashed border-[#d2dfe2] bg-transparent p-10 text-center transition hover:border-[#bbc6c7] hover:bg-[#f1f8e6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ChefHat className="mx-auto mb-3 text-[#68766f]"/><p className="font-medium">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div>}</TabsContent>
+          : <div>{planErrors[activeWeekKey]&&<p role="alert" className="mb-4 rounded-xl bg-[#fff0e8] p-4 text-sm text-[#963f32]">Could not save this week&apos;s dinners: {planErrors[activeWeekKey]}</p>}{selected.length>0&&<><section aria-label="Dinners to make"><h2 className="mb-4 font-sans text-2xl font-bold text-[#111613]">To make <span className="font-sans text-base font-medium text-[#68766f]">({dinnersToMake.length})</span></h2>{dinnersToMake.length?planRecipeGrid(dinnersToMake):<p className="rounded-2xl border border-dashed border-[#d2dfe2] p-5 text-sm text-[#65716b]">All planned dinners are done.</p>}</section><Button type="button" variant="outline" onClick={()=>setPlanPicking(true)} className="mt-4 w-full rounded-2xl border-dashed border-[#d2e0c1] bg-transparent py-6 text-[#151b17] shadow-none hover:bg-[#f1f8e6] hover:text-[#111613]"><Plus size={18}/>Add another recipe</Button>{dinnersDone.length>0&&<section aria-label="Done dinners" className="mt-9"><h2 className="mb-4"><button type="button" aria-expanded={!doneCollapsed} onClick={()=>setDoneCollapsed(v=>!v)} className="flex min-h-11 w-full items-center gap-2 rounded-lg text-left font-sans text-2xl font-bold text-[#111613] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ChevronDown size={22} className={`shrink-0 transition-transform ${doneCollapsed?"-rotate-90":""}`}/>Done <span className="font-sans text-base font-medium text-[#68766f]">({dinnersDone.length})</span></button></h2>{!doneCollapsed&&planRecipeGrid(dinnersDone)}</section>}</>}{selected.length===0&&<div role="button" tabIndex={0} onClick={()=>setPlanPicking(true)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPlanPicking(true)}}} className="cursor-pointer rounded-3xl border border-dashed border-[#d2dfe2] bg-transparent p-10 text-center transition hover:border-[#bbc6c7] hover:bg-[#f1f8e6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ChefHat className="mx-auto mb-3 text-[#68766f]"/><p className="font-medium">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div>}</TabsContent>
 
         <TabsContent value="shop">
           <div className="mb-6 grid grid-cols-2 rounded-2xl bg-[#edf3f6] p-1" role="tablist" aria-label="Shopping list source">
@@ -978,7 +1087,7 @@ export default function Home() {
                   const isCollapsed=globalSectionsCollapsed[sectionKey];
                   return <section key={heading} className="overflow-hidden rounded-2xl border border-[#d5e0e3] bg-[#ffffff]">
                     <button type="button" onClick={()=>setGlobalSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full items-center justify-between rounded-2xl bg-[#d6f59a] px-4 py-3 text-left hover:bg-[#c9ef78]">
-                      <span className="flex items-center gap-2 font-serif text-xl font-bold text-[#151b17]"><span className="grid size-8 place-items-center rounded-full bg-[#d6f59a] text-[#111613]">{index===0?<Plus size={16}/>:<Check size={16}/>}</span>{heading}<span className="text-sm font-sans font-medium text-[#707b76]">({items.length})</span></span>
+                      <span className="flex items-center gap-2 font-sans text-xl font-bold text-[#151b17]"><span className="grid size-8 place-items-center rounded-full bg-[#d6f59a] text-[#111613]">{index===0?<Plus size={16}/>:<Check size={16}/>}</span>{heading}<span className="text-sm font-sans font-medium text-[#707b76]">({items.length})</span></span>
                       <span className="grid size-8 place-items-center text-[#151b17]" aria-hidden="true">{isCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
                     </button>
                     {!isCollapsed&&<div className="space-y-2 p-2">{items.map(item=><div key={item.id} className="flex items-center gap-3 rounded-2xl border border-[#d5e0e3] bg-[#ffffff] px-3 py-3 shadow-[0_2px_10px_rgba(45,61,50,.04)]"><Checkbox className="size-6 shrink-0 sm:size-5" checked={item.checked} onCheckedChange={()=>toggleGlobalItem(item)} aria-label={`${item.checked?"Uncheck":"Complete"} ${item.ingredient_name}`}/><span className={`min-w-0 flex-1 text-lg leading-relaxed ${item.checked?"text-[#707b76] line-through":"text-[#151b17]"}`}>{globalItemPhrase(item)}</span><button type="button" onClick={()=>removeGlobalItem(item)} aria-label={`Remove ${item.ingredient_name}`} className="grid size-9 shrink-0 place-items-center rounded-full text-[#68766f] hover:bg-[#fff0e8] hover:text-[#963f32]"><X size={16}/></button></div>)}{!items.length&&<p className="rounded-2xl border border-dashed border-[#d2dfe2] p-5 text-sm text-[#65716b]">{index===0?"Everything is checked off.":"Completed items will appear here."}</p>}</div>}
@@ -987,7 +1096,7 @@ export default function Home() {
               </div>}
           </TabsContent>
 
-        <TabsContent value="history"><div className="space-y-4">{history.map(week=><article key={week.id} className="rounded-2xl border border-[#d5e0e3] bg-[#ffffff] p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-[#687c36]">Meal plan</p><h3 className="font-serif text-xl font-bold">{week.label}</h3></div><span className="text-xs text-[#68736c]">Saved {new Date(week.savedAt).toLocaleDateString()}</span></div><div className="grid gap-2 sm:grid-cols-2">{week.meals.map(meal=><div key={meal.id} className="flex items-center gap-3 rounded-xl bg-[#edf3f6] p-3"><span className="text-2xl">{meal.emoji}</span><div className="min-w-0"><p className="truncate font-medium">{meal.title}</p><p className="text-xs text-[#65716b]">{meal.day?`${meal.day} · `:""}For {meal.people} people{meal.chef?` · Chef ${meal.chef}`:""}</p></div></div>)}</div></article>)}{!history.length&&<div className="rounded-3xl border border-dashed border-[#d2dfe2] bg-transparent p-10 text-center"><HistoryIcon className="mx-auto mb-3 text-[#68766f]"/><p className="font-medium">No completed weeks yet.</p><p className="mt-1 text-sm text-[#65716b]">A week will appear here automatically after it ends.</p></div>}</div></TabsContent>
+        <TabsContent value="history"><div className="space-y-4">{history.map(week=><article key={week.id} className="rounded-2xl border border-[#d5e0e3] bg-[#ffffff] p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-[#687c36]">Meal plan</p><h3 className="font-sans text-xl font-bold">{week.label}</h3></div><span className="text-xs text-[#68736c]">Saved {new Date(week.savedAt).toLocaleDateString()}</span></div><div className="grid gap-2 sm:grid-cols-2">{week.meals.map(meal=><div key={meal.id} className="flex items-center gap-3 rounded-xl bg-[#edf3f6] p-3"><span className="text-2xl">{meal.emoji}</span><div className="min-w-0"><p className="truncate font-medium">{meal.title}</p><p className="text-xs text-[#65716b]">{meal.day?`${meal.day} · `:""}For {meal.people} people{meal.chef?` · Chef ${meal.chef}`:""}</p></div></div>)}</div></article>)}{!history.length&&<div className="rounded-3xl border border-dashed border-[#d2dfe2] bg-transparent p-10 text-center"><HistoryIcon className="mx-auto mb-3 text-[#68766f]"/><p className="font-medium">No completed weeks yet.</p><p className="mt-1 text-sm text-[#65716b]">A week will appear here automatically after it ends.</p></div>}</div></TabsContent>
       </Tabs>
       </>}
     </div>

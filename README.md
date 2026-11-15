@@ -73,6 +73,8 @@ longer required.
 
 - [`PRODUCT_REQUIREMENTS.md`](PRODUCT_REQUIREMENTS.md) is the human-readable
   source of truth for product behavior and experience.
+- [`docs/EXPERIENCE_ARCHITECTURE.md`](docs/EXPERIENCE_ARCHITECTURE.md) records
+  the established screen hierarchy, control placement, and interaction patterns.
 - [`AGENTS.md`](AGENTS.md) explains how another coding agent should update,
   verify, and publish the site.
 

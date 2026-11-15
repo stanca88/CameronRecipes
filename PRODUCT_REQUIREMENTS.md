@@ -1,7 +1,7 @@
 # Cameron Family Recipes - Product Requirements
 
 **Status:** Source of truth for the current product  
-**Last updated:** September 15, 2026  
+**Last updated:** November 15, 2026
 **Production site:** https://cameron-recipes.vercel.app
 
 ## 1. Purpose
@@ -20,11 +20,17 @@ This document defines the intended product behavior and experience.
 
 - `PRODUCT_REQUIREMENTS.md` defines what the product should do and how it
   should feel.
+- `docs/EXPERIENCE_ARCHITECTURE.md` records the established screen hierarchy,
+  navigation, control placement, interaction patterns, and layout invariants.
 - `AGENTS.md` defines how coding agents should work on, verify, and publish the
   product.
 - The application code defines the current implementation.
-- A new explicit direction from the product owner overrides older wording. The
-  PRD should be updated in the same change so it remains accurate.
+- A new explicit direction from the product owner overrides older wording.
+  Update the PRD and experience architecture together when a requested change
+  alters product behavior or an established experience invariant.
+- A request to change one feature is not permission to redesign neighboring
+  screens, move existing controls, or change navigation. Preserve the current
+  experience unless the product owner explicitly requests a structural change.
 
 Agents should not treat brainstormed ideas as requirements unless they are
 added to this document under Current Requirements.
@@ -106,10 +112,22 @@ The product must support recipes that do not come from a website.
 - Accept one ingredient per line.
 - Accept one direction per line.
 - Let users edit all saved recipe fields later.
+- Keep the recipe's existing Edit control in the toolbar; activating it makes
+  details, ingredients, and directions editable in place.
+- Keep the Back button at the same top-left position in the recipe collection
+  and recipe detail views; opening a recipe must not shift it.
+- Keep Edit in its established toolbar position. In edit mode, show one global
+  Save and Cancel pair in that same toolbar area; do not move or duplicate
+  these actions elsewhere.
+- Provide separate inline editors for recipe details, ingredients, and
+  directions, with one global Save and Cancel action pair shown in the toolbar.
+- In the directions editor, edit each step independently and keep its optional
+  image URL directly with that step; allow users to add and remove steps.
 - Surface save failures rather than pretending the recipe was saved.
-- Present recipe creation and editing as a dedicated full-page experience,
-  rather than a modal dialog, with large labeled fields and touch-friendly
-  controls for mobile use.
+- Present recipe creation as a dedicated full-page experience rather than a
+  modal dialog, with large labeled fields and touch-friendly controls for
+  mobile use. Keep the saved recipe visible while each section is edited in
+  place.
 
 ### FR-4: Ingredient understanding and display
 
@@ -172,7 +190,8 @@ The recipe detail view must be usable while cooking.
 - Provide a consistent green Back button whose text remains white on hover.
 - Show Ingredients and Directions as distinct sections.
 - Present Ingredients and Directions as a two-tab pivot in the recipe view.
-- Let users collapse and expand Ingredients.
+- In the Ingredients tab, keep the ingredient list visible without an outer
+  collapse control. The `To use` and `Used` subsections may still collapse.
 - Let users check off ingredients they have used while cooking, with checked
   ingredients remaining visibly marked.
 - Organize recipe ingredients into collapsible `To use` and `Used` sections,
@@ -268,12 +287,30 @@ Empty states must explain the next useful action without excessive decoration.
 
 - Product name: **Cameron Family Table** in the in-app header.
 - Browser/site title: **Cameron Family Recipes**.
+- Use a simple chef-hat favicon in the product's fresh lime and ink palette.
 - The visual tone should feel fresh, bright, calm, and family-oriented.
 - Primary colors are crisp white and cool blue-gray surfaces, bright lime
   accents, and ink-black text and actions, with light blue and soft peach as
   secondary accents.
 - Recipe imagery may rotate in the header along with short family-oriented
   taglines.
+- Use serif typography for meal titles and rotating family taglines; all other
+  interface text uses sans-serif typography.
+
+### Layout stability
+
+- Preserve the established screen hierarchy, navigation, action order, and
+  control locations when making a focused change.
+- Keep the Back button anchored at the same top-left position when navigating
+  between the recipe collection and a recipe detail.
+- Do not move, reorder, rename, hide, or remove an existing control or feature
+  unless the product owner explicitly requests it.
+- Keep visual polish local to the requested area. A visual refresh is not
+  permission to change how users navigate or where they find existing actions.
+- When a requested feature cannot fit without changing an established layout
+  or interaction, ask the product owner before making that structural change.
+- Update `docs/EXPERIENCE_ARCHITECTURE.md` whenever an explicitly approved
+  change alters the established experience.
 
 ### Responsive behavior
 
