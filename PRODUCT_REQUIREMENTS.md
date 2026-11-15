@@ -268,9 +268,10 @@ Empty states must explain the next useful action without excessive decoration.
 
 - Product name: **Cameron Family Table** in the in-app header.
 - Browser/site title: **Cameron Family Recipes**.
-- The visual tone should feel warm, calm, natural, and family-oriented.
-- Primary colors are warm off-white backgrounds, dark green text, green
-  actions, and coral accents.
+- The visual tone should feel fresh, bright, calm, and family-oriented.
+- Primary colors are crisp white and cool blue-gray surfaces, bright lime
+  accents, and ink-black text and actions, with light blue and soft peach as
+  secondary accents.
 - Recipe imagery may rotate in the header along with short family-oriented
   taglines.
 
@@ -349,7 +350,8 @@ cache once and then removes itself from the URL.
 - The current product has no sign-in or per-user account experience; it is a
   shared family application.
 - Local development without Supabase environment values cannot display or
-  modify the production recipe collection.
+  modify the production recipe collection. Use `?mockRecipes=1` on localhost
+  to preview sample recipes and a sample weekly plan without saving them.
 - Ingredient parsing is intentionally practical rather than a complete
   culinary-language parser.
 
