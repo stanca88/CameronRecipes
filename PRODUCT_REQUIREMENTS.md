@@ -188,7 +188,8 @@ The product must support separate plans for this week and next week.
 - On each planned meal card, place the day and cook selectors above a green
   `Mark as made` action at the bottom. Keep the day and cook placeholder text
   the same color. Give both selectors white pill surfaces with dark text,
-  regardless of the recipe card's palette. The `Mark as made` checkbox has a
+  regardless of the recipe card's palette, and use regular-weight text in all
+  three controls. The `Mark as made` checkbox has a
   white unchecked fill and uses the card's tint when checked. Once marked done,
   label the action `Made`; keep it clickable to mark the dinner undone.
 - Synchronize each week's completed dinners across devices.
@@ -304,7 +305,7 @@ The product must support family members seeing shared recipe and planning data.
 Empty states must explain the next useful action without excessive decoration.
 
 - Center empty-state messages and use a lighter gray font color throughout the
-  app.
+  app, with regular-weight text in empty-state messages and actions.
 - An empty plan should invite the user to choose recipes.
 - An empty shopping list should invite the user to add meals.
 - Empty states should remain visually light and should not use a large
@@ -364,7 +365,8 @@ Empty states must explain the next useful action without excessive decoration.
   recipe details use their recipe-derived palette. The recipe-detail toolbar's
   **Add to week**, **Edit**, and **Delete** actions keep their white resting
   surfaces and use the app's lime (`#d6f59a`) for both the background and border
-  on hover. The shared-header week selector and Back
+  on hover; visible toolbar labels use regular-weight text. The shared-header
+  week selector and Back
   action keep their lime surface and deeper-lime hover treatment. Plan/Shop
   uses a lime selected pill and two equal-width tabs that do not overlap. On an
   inactive tab, hover changes only its label and icon to white, not its
@@ -383,8 +385,9 @@ Empty states must explain the next useful action without excessive decoration.
   pivot sticky while scrolling. Keep the photo-backed shared header extended
   through the week/Plan/Shop controls, with those controls staying sticky over
   the photo. Keep the Shop `From meals`/`Global` pivot sticky beneath them.
-- Use a neutral gray hover fill for Plan's `Add another recipe` action and the
-  matching Global `Add a task` action.
+- Use the app's lime (`#d6f59a`) hover fill and matching border for Plan's
+  `Add another recipe` action and use regular-weight text for its label. Global
+  `Add a task` retains its neutral-gray hover fill.
 - Use varied lime, peach, and pale blue surfaces for recipe cards in the
   collection and weekly plan, without an outer border.
 - Assign each recipe a stable fallback theme from the lime, peach, and pale
@@ -399,8 +402,8 @@ Empty states must explain the next useful action without excessive decoration.
   recipe's light theme color for recipe-content controls, ingredient rows, and
   direction steps. The Ingredients/Directions pivot uses the active recipe's
   lighter control color for its track and darker theme color for the selected
-  pill. Both pivot labels are bold; the unselected label is gray at rest and
-  darkens on hover. Recipe ingredient and direction checkboxes use a neutral
+  pill. Both pivot labels are bold; the unselected label uses the recipe theme
+  color at rest and turns black on hover. Recipe ingredient and direction checkboxes use a neutral
   gray outline (`#b5b5b5`) while unchecked and a solid active-recipe theme fill
   when checked. Completed direction-step sections use the active recipe's light
   control color and theme-colored border, not the app's green. Keep unchecked
@@ -429,15 +432,17 @@ Empty states must explain the next useful action without excessive decoration.
   Use true-gray (`#d6d6d6`) borders and dividers for these groups and other
   neutral app/form/detail boundaries; use `#b5b5b5` for unchecked global
   checkbox outlines.
-- Style the Global Add a task action like Plan's Add another recipe control.
-  Activating it reveals a task field with embedded checkmark and cancel
+- Style the Global Add a task action like Plan's Add another recipe control,
+  except that Global retains its neutral-gray hover fill. Activating it reveals
+  a task field with embedded checkmark and cancel
   controls. The cancel control sits to the checkmark's right, and both icons
   use the same color. Enter adds the item; Escape or Cancel dismisses the field.
 - Plan/Shop uses a sliding lime selected pill; Ingredients/Directions uses the
   active recipe's derived theme; From meals/Global uses a black selected pill.
   Each indicator glides in both directions and respects reduced-motion
-  preferences.   In the Ingredients/Directions pivot, both labels are bold; the unselected
-  label is gray at rest and darkens on hover. Inactive From meals/Global tabs
+  preferences. In the Ingredients/Directions pivot, both labels are bold; the
+  unselected label uses the recipe theme color at rest and turns black on hover.
+  Inactive From meals/Global tabs
   change text only on hover, with no background or drop-shadow change.
 - Form fields use rounded white surfaces, restrained 1px neutral-gray
   (`#d6d6d6`) borders, no drop shadows, and a visible lime focus ring. Error
