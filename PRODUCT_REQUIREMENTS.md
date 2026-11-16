@@ -348,6 +348,8 @@ Empty states must explain the next useful action without excessive decoration.
   and planned-meal day and chef selectors.
 - Keep Plan/Shop controls content-sized, with the selected pill filling the
   navigation control's full height.
+- Use a neutral gray hover fill for Plan's `Add another recipe` action and the
+  matching Global `Add a task` action.
 - Use varied lime, peach, and pale blue surfaces for recipe cards in the
   collection and weekly plan, without an outer border.
 - Keep the recipe detail background neutral. Reuse each recipe card's control
