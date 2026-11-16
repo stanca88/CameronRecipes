@@ -100,6 +100,10 @@ title, image, page footer, or a separate menu. On mobile, controls may use
 compact icon treatments, but their meaning, order, and toolbar location remain
 the same.
 
+When the recipe is already planned, the **Add to week** action shows the
+week's start date in its confirmation label, such as **Added to Nov 15th
+week**.
+
 #### Recipe editing
 
 - Activating **Edit** makes recipe details, ingredients, and directions

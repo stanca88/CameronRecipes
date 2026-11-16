@@ -93,6 +93,14 @@ function weekRange(offset = 0) {
   return `${left} – ${right}`;
 }
 
+function weekStartLabel(offset = 0) {
+  const start = weekStart(offset);
+  const day = start.getDate();
+  const suffix = day % 100 >= 11 && day % 100 <= 13 ? "th" : day % 10 === 1 ? "st" : day % 10 === 2 ? "nd" : day % 10 === 3 ? "rd" : "th";
+  const month = start.toLocaleDateString("en-US", { month:"short" });
+  return `${month} ${day}${suffix} week`;
+}
+
 function weekRangeShort(offset = 0) {
   const start = weekStart(offset);
   const end = new Date(start); end.setDate(start.getDate() + 6);
@@ -933,7 +941,7 @@ export default function Home() {
         <div className="mb-5 flex items-center justify-between gap-2 pt-4 sm:pt-3">
           <BackButton onClick={()=>setActiveRecipe(null)} disabled={recipeIsEditing||savingRecipeEdits}/>
           <div className="flex shrink-0 items-center gap-2">
-            <Button onClick={()=>toggle(activeRecipe.id)} variant="outline" size="icon" className={`shrink-0 rounded-lg border border-[#d5e0e3] bg-white sm:h-9 sm:w-auto sm:px-4 ${selected.includes(activeRecipe.id)?"text-[#111613] hover:bg-[#eaf7d0]":"text-[#111613] hover:bg-[#eff8dd]"}`} aria-label={selected.includes(activeRecipe.id)?`Added to ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}>{selected.includes(activeRecipe.id)?<Check size={18}/>:<Plus size={18}/>}<span className="hidden sm:inline">{selected.includes(activeRecipe.id)?`Added to ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}</span></Button>
+            <Button onClick={()=>toggle(activeRecipe.id)} variant="outline" size="icon" className={`shrink-0 rounded-lg border border-[#d5e0e3] bg-white sm:h-9 sm:w-auto sm:px-4 ${selected.includes(activeRecipe.id)?"text-[#111613] hover:bg-[#eaf7d0]":"text-[#111613] hover:bg-[#eff8dd]"}`} aria-label={selected.includes(activeRecipe.id)?`Added to ${weekStartLabel(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}>{selected.includes(activeRecipe.id)?<Check size={18}/>:<Plus size={18}/>}<span className="hidden sm:inline">{selected.includes(activeRecipe.id)?`Added to ${weekStartLabel(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}</span></Button>
             {recipeIsEditing
               ? <>
                   <Button type="button" className="h-11 w-11 shrink-0 rounded-lg bg-[#111613] p-0 text-white hover:bg-[#2d3b32] sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Save recipe changes" disabled={savingRecipeEdits} onClick={saveRecipeEdits}><Check size={18}/><span className="sr-only sm:not-sr-only">{savingRecipeEdits?"Saving…":"Save"}</span></Button>
