@@ -165,9 +165,10 @@ the same.
 - **From meals** displays generated ingredients grouped by grocery category.
   Category cards keep rounded light-gray headers, shared-size checkboxes, and
   existing collapse controls. The **From meals** and **Global** source tabs use
-  the same black selected treatment as the recipe detail tabs, with a compact
-  width and sliding active pill that respects reduced-motion preferences. On
-  wider screens, columns are balanced and aligned from the top.
+  the same black selected treatment as the recipe detail tabs, stretch across
+  their available width, and use a sliding active pill that respects
+  reduced-motion preferences. On wider screens, columns are balanced and
+  aligned from the top.
 - **Global** starts with an **Add a task** action styled like Plan's **Add
   another recipe** control. Activating it reveals a task field with embedded
   checkmark and cancel controls; cancel is to the checkmark's right and both

@@ -340,9 +340,10 @@ Empty states must explain the next useful action without excessive decoration.
   letter spacing. The `Mark as done` checkbox uses the card's
   tinted control color, has no border, and its hover uses a light,
   darker-than-card shade.
-- Keep the From meals/Global selector compact. Global's To get/Completed
-  groups use the same card, full-width header, and item-row styling as From
-  meals category groups.
+- Stretch the From meals/Global selector across the available width, matching
+  the Ingredients/Directions pivot. Global's To get/Completed groups use the
+  same card, full-width header, and item-row styling as From meals category
+  groups.
 - Style the Global Add a task action like Plan's Add another recipe control.
   Activating it reveals a task field with embedded checkmark and cancel
   controls. The cancel control sits to the checkmark's right, and both icons
