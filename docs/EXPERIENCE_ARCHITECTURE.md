@@ -64,8 +64,9 @@ flowchart TD
   Collection and planned-meal cards use varied pastel lime, peach, and blue
   surfaces without an outer border. Their actions and selectors are borderless,
   dropdown surfaces and highlighted options match the card palette, and tags
-  use a darker shade of the card surface with regular-weight responsive 11px
-  mobile and 12px desktop text. The `Mark as done` checkbox uses the card tint
+  use a darker shade of the card surface. All recipe tags share an all-caps,
+  regular-weight style with tight letter spacing and responsive 10px mobile
+  and 11px desktop text. The `Mark as done` checkbox uses the card tint
   without a border, and its hover uses a light, darker-than-card shade. The
   card's meal title is serif; supporting content and actions are sans-serif.
 - Selecting a recipe opens its detail view. Planned recipe cards use the same

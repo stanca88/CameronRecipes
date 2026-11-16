@@ -335,8 +335,9 @@ Empty states must explain the next useful action without excessive decoration.
   collection and weekly plan, without an outer border.
 - Keep recipe-card actions and selectors borderless, and theme dropdown
   surfaces and highlighted options to match their card. Tint each recipe tag
-  with a darker shade of its card surface and regular-weight tag text at 11px
-  on mobile and 12px on desktop. The `Mark as done` checkbox uses the card's
+  with a darker shade of its card surface. Use the same all-caps, regular-weight
+  style for recipe tags at 10px on mobile and 11px on desktop, with tight
+  letter spacing. The `Mark as done` checkbox uses the card's
   tinted control color, has no border, and its hover uses a light,
   darker-than-card shade.
 - Keep the From meals/Global selector compact. Global's To get/Completed
