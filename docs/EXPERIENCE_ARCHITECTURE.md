@@ -119,10 +119,10 @@ the same.
 - The **Cooking for** servings control uses the same fully rounded treatment.
 - The empty `Used` ingredients message remains light and uses fully rounded
   corners.
-- The Ingredients tab has a visible section heading and no outer
-  collapse/expand control. Its `To use` and `Used` subsections remain
-  individually collapsible and move ingredients when they are checked or
-  unchecked.
+- The Ingredients tab has no redundant section title or outer collapse
+  control. Its `To use` and `Used` subsections are large text-only headings
+  without a colored background; they remain individually collapsible and move
+  ingredients when checked or unchecked.
 - Directions remain ordered, checkable steps with any associated step image.
   Completion feedback stays with the directions experience.
 - Preserve the servings control's position below the title on mobile; it must

@@ -194,7 +194,8 @@ The recipe detail view must be usable while cooking.
 - Show Ingredients and Directions as distinct sections.
 - Present Ingredients and Directions as a two-tab pivot in the recipe view.
 - In the Ingredients tab, keep the ingredient list visible without an outer
-  collapse control. The `To use` and `Used` subsections may still collapse.
+  title or collapse control. Use large text-only `To use` and `Used` headings
+  without a colored background; the subsections may still collapse.
 - Let users check off ingredients they have used while cooking, with checked
   ingredients remaining visibly marked.
 - Organize recipe ingredients into collapsible `To use` and `Used` sections,
@@ -319,9 +320,10 @@ Empty states must explain the next useful action without excessive decoration.
 
 - Use pill-shaped styling for action buttons, including toolbar controls;
   icon-only controls remain circular and text-only actions stay visually quiet.
-- Use fully rounded pill shapes for the Ingredients/Directions pivot and the
-  collapsible ingredient and global-list section headings. Use the same
-  rounded treatment for the Cooking for servings control.
+- Use a fully rounded pill shape for the Ingredients/Directions pivot and the
+  collapsible global-list section headings. Show the collapsible `To use` and
+  `Used` ingredient headings as large text without a colored background. Use
+  the same rounded treatment for the Cooking for servings control.
 - Keep the app background white. The shared-header week selector uses a
   borderless lime surface, and the Recipes action keeps its prominent book icon.
 - Use fully rounded pill shapes for the week selector, Plan/Shop navigation,
