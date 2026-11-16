@@ -180,8 +180,11 @@ The product must support separate plans for this week and next week.
   for that week, with a way to move it back. Keep completed dinners in the
   weekly plan and shopping-list calculations until they are removed.
 - On each planned meal card, place the day and cook selectors above a green
-  `Mark as done` action at the bottom. Keep the day and cook placeholder text
-  the same color.
+  `Mark as made` action at the bottom. Keep the day and cook placeholder text
+  the same color. Give both selectors white pill surfaces with dark text,
+  regardless of the recipe card's palette. The `Mark as made` checkbox has a
+  white unchecked fill and uses the card's tint when checked. Once marked done,
+  label the action `Made`; keep it clickable to mark the dinner undone.
 - Synchronize each week's completed dinners across devices.
 
 ### FR-6: Servings
@@ -303,7 +306,9 @@ Empty states must explain the next useful action without excessive decoration.
 
 - Product name: **Cameron Family Table** in the in-app header.
 - Browser/site title: **Cameron Family Recipes**.
-- Use a simple chef-hat favicon in the product's fresh lime and ink palette.
+- Use a simple chef-hat favicon and iOS Home Screen icon in the product's
+  fresh lime and ink palette. Provide an opaque 180x180 Apple touch icon so
+  Safari's Add to Home Screen experience uses the branded icon.
 - The visual tone should feel fresh, bright, calm, and family-oriented.
 - Primary colors are crisp white and cool blue-gray surfaces, bright lime
   accents, and ink-black text and actions, with light blue and soft peach as
@@ -337,7 +342,8 @@ Empty states must explain the next useful action without excessive decoration.
   `Used` ingredient headings as large text without a colored background. Use
   the same rounded treatment for the Cooking for servings control.
 - Keep the app background white. The shared-header week selector uses a
-  borderless lime surface, and the Recipes action keeps its prominent book icon.
+  borderless black surface with white text and icon; the Recipes action keeps
+  its prominent book icon.
 - Use fully rounded pill shapes for the week selector, Plan/Shop navigation,
   and planned-meal day and chef selectors.
 - Keep Plan/Shop controls content-sized, with the selected pill filling the
@@ -358,8 +364,8 @@ Empty states must explain the next useful action without excessive decoration.
   surfaces and highlighted options to match their card. Tint each recipe tag
   with a darker shade of its card surface. Use the same all-caps, regular-weight
   style for recipe tags at 10px on mobile and 11px on desktop, with tight
-  letter spacing. The `Mark as done` checkbox uses the card's
-  tinted control color, has no border, and its hover uses a light,
+  letter spacing. The `Mark as made` checkbox has a white unchecked fill, no
+  border, and a card-specific checked tint. Its row hover uses a light,
   darker-than-card shade.
 - Stretch the From meals/Global selector across the available width, matching
   the Ingredients/Directions pivot. Global's To get/Completed groups use the
