@@ -204,6 +204,8 @@ The recipe detail view must be usable while cooking.
 - Present direction steps as compact checkable rows.
 - Let users tap a direction step to mark it complete or incomplete.
 - Show a completion message when every direction is checked.
+- When a recipe is already planned, label its detail action with the week start,
+  for example, `Added to Nov 15th week`.
 - Do not display the removed instructional sentence, "Tap a step when you
   finish it to check it off while you cook."
 
