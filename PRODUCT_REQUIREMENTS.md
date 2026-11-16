@@ -1,7 +1,7 @@
 # Cameron Family Recipes - Product Requirements
 
 **Status:** Source of truth for the current product  
-**Last updated:** November 15, 2026
+**Last updated:** November 16, 2026
 **Production site:** https://cameron-recipes.vercel.app
 
 ## 1. Purpose
@@ -203,8 +203,9 @@ The recipe detail view must be usable while cooking.
 - Present Ingredients and Directions as a two-tab pivot in the recipe view.
 - In the Ingredients tab, keep the ingredient list visible without an outer
   title or collapse control. Use large text-only `To use` and `Used` headings
-  without a colored background; align them with the ingredient rows and keep
-  their hover background padded to the left. The subsections may still collapse.
+  without a colored background. Align the panel content with the pivot's left
+  edge, then give headings and ingredient controls a small, consistent inset
+  within their rounded hover surfaces. The subsections may still collapse.
 - Let users check off ingredients they have used while cooking, with checked
   ingredients remaining visibly marked.
 - Organize recipe ingredients into collapsible `To use` and `Used` sections,
@@ -351,6 +352,8 @@ Empty states must explain the next useful action without excessive decoration.
   for its track and darker theme color for the selected pill. Keep ingredient
   and direction checkbox outlines in the active recipe's darker theme color.
   Keep unchecked fills neutral and use that darker color for checked fills.
+  Keep recipe-detail content aligned to the pivot's left edge, with heading
+  text and controls slightly inset within their rounded hover surfaces.
 - Keep recipe-card actions and selectors borderless, and theme dropdown
   surfaces and highlighted options to match their card. Tint each recipe tag
   with a darker shade of its card surface. Use the same all-caps, regular-weight
