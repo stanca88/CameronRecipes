@@ -81,8 +81,12 @@ The product must provide a shared recipe collection.
 - Deleting a recipe must remove it from active plans and generated shopping
   lists, while preserving already archived history.
 - Allow recipes to be searched by recipe name or inferred cuisine.
-- Give each recipe a visible tag, using an inferred cuisine or `Family recipe`
-  when no tag is set.
+- Give each recipe a visible cuisine tag, such as `American`, `Asian`, `Italian`,
+  or `Mexican`; do not use dish categories or non-cuisine labels as inferred
+  tags.
+- When adding a recipe, infer its cuisine from the title and ingredients when
+  possible, and use `Family recipe` when no cuisine can be inferred. Show the
+  inferred tag during import review so it can be edited before saving.
 - Let users manually edit a recipe's tag and click a tag to filter the recipe
   collection.
 - Show a link to the original recipe when a source URL is available.
@@ -94,7 +98,8 @@ its structured details.
 
 - Import the title, ingredients, directions, image, and source name when those
   fields are available.
-- Show the imported information in an editable review step before saving.
+- Show the imported information in an editable review step before saving,
+  including its inferred cuisine tag.
 - Provide understandable errors when a page cannot be opened or does not
   contain readable recipe data.
 - Always provide manual entry as an alternative.
@@ -108,6 +113,7 @@ unsupported markup.
 The product must support recipes that do not come from a website.
 
 - Require a recipe title.
+- Infer a cuisine tag from the title and ingredients when no tag is supplied.
 - Accept an optional image URL.
 - Accept one ingredient per line.
 - Accept one direction per line.
@@ -119,6 +125,8 @@ The product must support recipes that do not come from a website.
 - Keep Edit in its established toolbar position. In edit mode, show one global
   Save and Cancel pair in that same toolbar area; do not move or duplicate
   these actions elsewhere.
+- Use a Save icon for the Save action so it is distinct from the checkmark used
+  to indicate a recipe was added.
 - Provide separate inline editors for recipe details, ingredients, and
   directions, with one global Save and Cancel action pair shown in the toolbar.
 - In the directions editor, edit each step independently and keep its optional
@@ -336,11 +344,13 @@ Empty states must explain the next useful action without excessive decoration.
 - Use varied lime, peach, and pale blue surfaces for recipe cards in the
   collection and weekly plan, without an outer border.
 - Keep the recipe detail background neutral. Reuse each recipe card's control
-  palette for the servings control. Use a consistent light-green hover surface
-  for interactive controls inside the recipe and for direction steps. The
-  Ingredients/Directions pivot has a gray track and a black
-  selected pill. Keep ingredient and direction checkboxes in their existing
-  neutral style rather than tinting them with the recipe palette.
+  palette for the servings control. Use rounded hover surfaces in the active
+  recipe's light theme color for detail controls, ingredient rows, and direction
+  steps. The
+  Ingredients/Directions pivot uses the active recipe's lighter control color
+  for its track and darker theme color for the selected pill. Keep ingredient
+  and direction checkbox outlines in the active recipe's darker theme color.
+  Keep unchecked fills neutral and use that darker color for checked fills.
 - Keep recipe-card actions and selectors borderless, and theme dropdown
   surfaces and highlighted options to match their card. Tint each recipe tag
   with a darker shade of its card surface. Use the same all-caps, regular-weight
