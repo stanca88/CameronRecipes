@@ -37,8 +37,9 @@ flowchart TD
   header is not shown in this view.
 - In the shared header, the circular **Recipes** action returns to the
   collection and keeps a prominent book icon above its label. The app
-  background is white, and the week selector is lime with no border. The week
-  selector and **Plan**/**Shop** navigation use fully rounded pill shapes.
+  background is white, and the week selector is black with white text and icon,
+  with no border. The week selector and **Plan**/**Shop** navigation use fully
+  rounded pill shapes.
   Keep the controls content-sized, with the selected pill filling the full
   navigation height. The selected pill glides in both directions and respects
   reduced-motion preferences.
@@ -69,9 +70,10 @@ flowchart TD
   dropdown surfaces and highlighted options match the card palette, and tags
   use a darker shade of the card surface. All recipe tags share an all-caps,
   regular-weight style with tight letter spacing and responsive 10px mobile
-  and 11px desktop text. The `Mark as done` checkbox uses the card tint
-  without a border, and its hover uses a light, darker-than-card shade. The
-  card's meal title is serif; supporting content and actions are sans-serif.
+  and 11px desktop text. The `Mark as made` checkbox uses the card tint
+  when checked, has a white unchecked fill and no border, and its row hover
+  uses a light, darker-than-card shade. The card's meal title is serif;
+  supporting content and actions are sans-serif.
 - A recipe's detail view keeps a neutral background and reuses its
   collection/plan card's control palette for servings. Rounded hover surfaces
   on detail controls, ingredient rows, and direction steps use the active
@@ -168,8 +170,11 @@ week**.
 - Planned meals are grouped under **To make** and **Done**. Completion moves a
   meal between these groups without removing it from the week's plan.
 - Each meal card keeps its day and cook selectors above a green **Mark as
-  done** pill action at the bottom. Keep the day and cook placeholders the
-  same color and the checkbox aligned with the card content.
+  made** pill action at the bottom. Use white selector surfaces with dark text
+  regardless of card color, keep the day and cook placeholders the same color,
+  and align the checkbox with the card content.
+- After marking a meal done, label the reversible action **Made** without
+  adding explanatory copy to its visible label.
 - Each meal card retains its servings and completion behavior.
 - **Add another recipe** opens recipe picking within the plan flow. Choosing
   a recipe should not change the location of the week selector or primary
@@ -218,7 +223,8 @@ week**.
   shadows, and a lime focus ring. Keep tertiary text actions quiet and preserve
   clear error, disabled, checked, and reduced-motion states.
 - Use a simple chef-hat favicon on a rounded lime tile, with a white hat and
-  ink outline.
+  ink outline. Provide an opaque 180x180 Apple touch icon with a full-bleed lime
+  background for iOS Add to Home Screen.
 - Use serif only for meal/recipe titles and the rotating family tagline. All
   navigation, labels, descriptions, section headings, forms, and other
   interface copy use sans-serif.

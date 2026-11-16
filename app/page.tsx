@@ -863,9 +863,9 @@ export default function Home() {
   const changeView=(v:string)=>{if(v!=="recipes"&&v!=="history")setPreRecipesView(v);setView(v)};
   const goAway=(v:string)=>{if(view!=="recipes"&&view!=="history")setPreRecipesView(view);setView(v)};
   const recipeCardPalettes = [
-    { surface: "bg-[#d6f59a]", control: "bg-[#e8f7c7]", controlHover: "hover:bg-[#c8eb82]", controlHoverLight: "hover:bg-[#e8f7c7]", menu: "bg-[#d6f59a]", menuFocus: "focus:bg-[#b5d96a]", checkbox: "#e8f7c7", checkboxChecked: "#b5d96a", tag: "bg-[#b5d96a]", tagHover: "hover:bg-[#a6ce5a]", doneHover: "hover:bg-[#c8eb82]" },
-    { surface: "bg-[#fde8d5]", control: "bg-[#fff3e8]", controlHover: "hover:bg-[#f9d8b8]", controlHoverLight: "hover:bg-[#fff3e8]", menu: "bg-[#fde8d5]", menuFocus: "focus:bg-[#efc397]", checkbox: "#fff3e8", checkboxChecked: "#efc397", tag: "bg-[#efc397]", tagHover: "hover:bg-[#e6b27f]", doneHover: "hover:bg-[#f9d8b8]" },
-    { surface: "bg-[#dcecf2]", control: "bg-[#edf5f8]", controlHover: "hover:bg-[#cfe3eb]", controlHoverLight: "hover:bg-[#edf5f8]", menu: "bg-[#dcecf2]", menuFocus: "focus:bg-[#b8d2de]", checkbox: "#edf5f8", checkboxChecked: "#b8d2de", tag: "bg-[#b8d2de]", tagHover: "hover:bg-[#a7c7d5]", doneHover: "hover:bg-[#cfe3eb]" },
+    { surface: "bg-[#d6f59a]", control: "bg-[#e8f7c7]", controlHover: "hover:bg-[#c8eb82]", controlHoverLight: "hover:bg-[#e8f7c7]", menu: "bg-[#d6f59a]", menuFocus: "focus:bg-[#b5d96a]", checkboxChecked: "#b5d96a", tag: "bg-[#b5d96a]", tagHover: "hover:bg-[#a6ce5a]", doneHover: "hover:bg-[#c8eb82]" },
+    { surface: "bg-[#fde8d5]", control: "bg-[#fff3e8]", controlHover: "hover:bg-[#f9d8b8]", controlHoverLight: "hover:bg-[#fff3e8]", menu: "bg-[#fde8d5]", menuFocus: "focus:bg-[#efc397]", checkboxChecked: "#efc397", tag: "bg-[#efc397]", tagHover: "hover:bg-[#e6b27f]", doneHover: "hover:bg-[#f9d8b8]" },
+    { surface: "bg-[#dcecf2]", control: "bg-[#edf5f8]", controlHover: "hover:bg-[#cfe3eb]", controlHoverLight: "hover:bg-[#edf5f8]", menu: "bg-[#dcecf2]", menuFocus: "focus:bg-[#b8d2de]", checkboxChecked: "#b8d2de", tag: "bg-[#b8d2de]", tagHover: "hover:bg-[#a7c7d5]", doneHover: "hover:bg-[#cfe3eb]" },
   ] as const;
   const recipeCardPaletteFor = (id: string) => {
     let hash = 0;
@@ -880,15 +880,15 @@ export default function Home() {
         <h3 className="truncate font-serif text-xl font-bold" title={r.title}>{r.title}</h3>
         <div className="mt-3 grid min-w-0 grid-cols-2 gap-2" onClick={event=>event.stopPropagation()}>
         <Select value={days[r.id]||"none"} onValueChange={value=>{const day=value==="none"?"":value;setDay(r.id,day);setCommittedDays(previous=>({...previous,[r.id]:day}))}}>
-          <SelectTrigger aria-label={`Day for ${r.title}`} className={`h-11 w-full rounded-full border-0 ${recipeCardPaletteFor(r.id).control} ${recipeCardPaletteFor(r.id).controlHover} text-sm font-semibold text-[#111613] shadow-none focus-visible:border-[#111613] focus-visible:ring-[#111613]/20`}><SelectValue placeholder="Add day"/></SelectTrigger>
+          <SelectTrigger aria-label={`Day for ${r.title}`} className="h-11 w-full rounded-full border-0 bg-white text-sm font-semibold text-[#111613] shadow-none hover:bg-white focus-visible:border-[#111613] focus-visible:ring-[#111613]/20"><SelectValue placeholder="Add day"/></SelectTrigger>
           <SelectContent position="popper" side="top" sideOffset={6} align="start" className={`max-h-none overflow-visible rounded-xl border-0 p-1 shadow-lg ${recipeCardPaletteFor(r.id).menu}`}><SelectItem value="none" className={recipeCardPaletteFor(r.id).menuFocus}>Add day</SelectItem>{["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map(day=><SelectItem key={day} value={day} className={recipeCardPaletteFor(r.id).menuFocus}>{day}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={chefs[r.id]||"none"} onValueChange={value=>setChef(r.id,value==="none"?"":value)}>
-          <SelectTrigger aria-label={`Chef cooking ${r.title}`} className={`h-11 w-full rounded-full border-0 ${recipeCardPaletteFor(r.id).control} ${recipeCardPaletteFor(r.id).controlHover} text-sm font-semibold text-[#111613] shadow-none focus-visible:border-[#111613] focus-visible:ring-[#111613]/20`}><SelectValue placeholder="Add chef name"/></SelectTrigger>
+          <SelectTrigger aria-label={`Chef cooking ${r.title}`} className="h-11 w-full rounded-full border-0 bg-white text-sm font-semibold text-[#111613] shadow-none hover:bg-white focus-visible:border-[#111613] focus-visible:ring-[#111613]/20"><SelectValue placeholder="Add chef name"/></SelectTrigger>
           <SelectContent position="popper" side="top" sideOffset={6} align="end" className={`max-h-none overflow-visible rounded-xl border-0 p-1 shadow-lg ${recipeCardPaletteFor(r.id).menu}`}><SelectItem value="none" className={recipeCardPaletteFor(r.id).menuFocus}>Add chef name</SelectItem>{["Rory","Maria","Emma","Maya"].map(chef=><SelectItem key={chef} value={chef} className={recipeCardPaletteFor(r.id).menuFocus}>{chef}</SelectItem>)}</SelectContent>
         </Select>
         </div>
-        <button type="button" role="checkbox" aria-checked={done.includes(r.id)} aria-label={`${done.includes(r.id)?"Move":"Mark"} ${r.title} ${done.includes(r.id)?"back to To make":"done"}`} onClick={event=>{event.stopPropagation();toggleDinnerDone(r.id)}} className={`meal-done-control mt-3 -ml-2 flex min-h-11 w-[calc(100%+0.5rem)] items-center gap-3 rounded-full pl-2 text-left text-sm font-semibold text-[#151b17] transition-colors ${recipeCardPaletteFor(r.id).doneHover} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35`}><CheckboxIndicator checked={done.includes(r.id)} backgroundColor={recipeCardPaletteFor(r.id).checkbox} checkedBackgroundColor={recipeCardPaletteFor(r.id).checkboxChecked} borderless/>{done.includes(r.id)?"Made · move back to To make":"Mark as done"}</button>
+        <button type="button" role="checkbox" aria-checked={done.includes(r.id)} aria-label={done.includes(r.id)?`Reopen ${r.title}`:`Mark ${r.title} as made`} onClick={event=>{event.stopPropagation();toggleDinnerDone(r.id)}} className={`meal-done-control mt-3 -ml-2 flex min-h-11 w-[calc(100%+0.5rem)] items-center gap-3 rounded-full pl-2 text-left text-sm font-semibold text-[#151b17] transition-colors ${recipeCardPaletteFor(r.id).doneHover} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35`}><CheckboxIndicator checked={done.includes(r.id)} backgroundColor="#ffffff" checkedBackgroundColor={recipeCardPaletteFor(r.id).checkboxChecked} borderless/>{done.includes(r.id)?"Made":"Mark as made"}</button>
       </div></article>)}</div>;
 
   const fieldControlClass="min-h-12 rounded-xl border-[#d2e0c1] bg-white px-4 py-3 text-base text-[#151b17] shadow-none placeholder:text-[#707b76] focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15";
@@ -1050,7 +1050,25 @@ export default function Home() {
           <Button type="button" onClick={()=>goAway("recipes")} className="absolute right-4 top-4 z-10 flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-full border-0 bg-[#d6f59a] p-0 text-sm font-bold text-[#111613] shadow-lg transition-colors hover:bg-[#c9ef78] sm:size-32 sm:gap-1.5"><BookOpen className="size-9 sm:hidden"/><BookOpen className="hidden size-11 sm:block"/><span>Recipes</span></Button>
         </div>
         <div className="relative flex items-stretch gap-2 px-5 py-3 sm:px-8">
-          <Select value={view==="history"?"history":String(weekOffset)} onValueChange={value=>{if(value==="history"){goAway("history")}else{setWeekOffset(Number(value) as 0|1);if(view==="history")setView(preRecipesView)}}}><SelectTrigger aria-label="Choose planning week" className="data-[size=default]:h-11 min-w-0 shrink rounded-full border-0 bg-[#d6f59a] px-3 text-sm font-semibold text-[#111613] shadow-none hover:bg-[#c9ef78] [&_svg]:!text-[#111613] sm:shrink-0">{view==="history"?<HistoryIcon size={16} className="hidden shrink-0 text-[#111613] sm:block"/>:<CalendarDays size={16} className="hidden shrink-0 text-[#111613] sm:block"/>}<SelectValue className="truncate">{view==="history"?"History":<><span className="sm:hidden">{weekLabelShort}</span><span className="hidden sm:inline">{weekLabel}</span></>}</SelectValue></SelectTrigger><SelectContent position="popper" sideOffset={4} align="start" className="min-w-56 rounded-xl border-0 bg-white p-2 shadow-lg">{[0,1].map(offset=><SelectItem key={offset} value={String(offset)} className="rounded-lg py-2.5 pl-3 text-base">{offset===0?"This week":"Next week"} · {weekRange(offset as 0|1)}</SelectItem>)}<SelectItem value="history" className="rounded-lg py-2.5 pl-3 text-base">History</SelectItem></SelectContent></Select>
+          <Select
+            value={view==="history"?"history":String(weekOffset)}
+            onValueChange={value=>{if(value==="history"){goAway("history")}else{setWeekOffset(Number(value) as 0|1);if(view==="history")setView(preRecipesView)}}}
+          >
+            <SelectTrigger aria-label="Choose planning week" className="data-[size=default]:h-11 min-w-0 shrink rounded-full border-0 bg-[#111613] px-3 text-sm font-semibold text-white shadow-none hover:bg-[#2d3b32] [&_svg]:!text-white sm:shrink-0">
+              {view==="history"
+                ? <HistoryIcon size={16} className="hidden shrink-0 text-white sm:block"/>
+                : <CalendarDays size={16} className="hidden shrink-0 text-white sm:block"/>}
+              <SelectValue className="truncate">
+                {view==="history"
+                  ? "History"
+                  : <><span className="sm:hidden">{weekLabelShort}</span><span className="hidden sm:inline">{weekLabel}</span></>}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent position="popper" sideOffset={4} align="start" className="min-w-56 rounded-xl border-0 bg-white p-2 shadow-lg">
+              {[0,1].map(offset=><SelectItem key={offset} value={String(offset)} className="rounded-lg py-2.5 pl-3 text-base">{offset===0?"This week":"Next week"} · {weekRange(offset as 0|1)}</SelectItem>)}
+              <SelectItem value="history" className="rounded-lg py-2.5 pl-3 text-base">History</SelectItem>
+            </SelectContent>
+          </Select>
           <TabsList className="relative flex !h-11 flex-none items-stretch gap-0 overflow-hidden rounded-full border-0 bg-white/15 p-0 shadow-none backdrop-blur-sm">
             {(view==="plan"||view==="shop")&&<span aria-hidden="true" className={`pivot-tab-indicator absolute inset-y-0 left-0 w-1/2 rounded-full bg-[#111613] ${view==="shop"?"translate-x-full":"translate-x-0"}`}/>}
             {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative z-10 flex h-full flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-0 bg-transparent px-4 py-0 text-xs font-semibold text-white/80 shadow-none transition-colors hover:text-white data-[state=active]:bg-transparent data-[state=active]:text-white data-[state=active]:shadow-none sm:px-5 sm:text-sm"><Icon size={16} className="hidden shrink-0 sm:block"/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className="grid size-5 shrink-0 place-items-center rounded-full bg-white/20 text-[10px] font-bold leading-none text-white">{selected.length}</b>}</TabsTrigger>)}
