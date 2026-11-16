@@ -234,6 +234,8 @@ week**.
 - Keep mobile text, checkboxes, and primary controls comfortable to read and
   tap. Responsive changes may compact controls but must not change their
   hierarchy or move them to unrelated areas.
+- Center empty-state messages and use a lighter gray font color throughout the
+  app while preserving interactive empty-state actions.
 
 ## Persistence and state boundaries
 
