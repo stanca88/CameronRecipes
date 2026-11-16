@@ -60,6 +60,9 @@ flowchart TD
   views. Opening a recipe must not create a vertical or horizontal jump.
 - Search and tag filtering narrow the existing collection; they do not replace
   or hide its primary toolbar.
+- Recipe tags describe cuisine (for example, American, Asian, Italian, or
+  Mexican), not dish categories. New recipes infer a cuisine from their title
+  and ingredients when possible, falling back to `Family recipe`.
 - Recipe cards show the meal image, title, tag, and available source link.
   Collection and planned-meal cards use varied pastel lime, peach, and blue
   surfaces without an outer border. Their actions and selectors are borderless,
@@ -70,12 +73,13 @@ flowchart TD
   without a border, and its hover uses a light, darker-than-card shade. The
   card's meal title is serif; supporting content and actions are sans-serif.
 - A recipe's detail view keeps a neutral background and reuses its
-  collection/plan card's control palette for servings. Use a consistent
-  light-green hover surface for recipe controls and direction steps. The
+  collection/plan card's control palette for servings. Rounded hover surfaces
+  on detail controls, ingredient rows, and direction steps use the active
+  recipe's light theme color. The
   Ingredients/Directions pivot uses the active recipe's lighter control color
   for its track and darker theme color for the selected pill. Ingredient and
-  direction checkboxes use the lighter tint when unchecked and darker theme
-  color when checked.
+  direction checkbox outlines always use the darker theme color; unchecked
+  fills remain neutral and checked fills use that darker color.
 - Selecting a recipe opens its detail view. Planned recipe cards use the same
   recipe identity and also open that detail view.
 
@@ -112,6 +116,8 @@ week**.
 - Keep the toolbar action group in place. Replace Edit with exactly one global
   **Save** and **Cancel** pair in that same area. Keep **Back** and
   **Add to week** in their existing positions; keep **Delete** in the toolbar.
+- Use a Save icon for **Save**, distinct from the checkmark used by the
+  **Added** state.
 - Details, ingredients, and directions remain in their corresponding sections.
   Do not combine them into one editor section or move them to another screen.
 - Directions are a list of independent step cards. Each step's text and
@@ -146,7 +152,8 @@ week**.
 - Adding a recipe is a dedicated full-page flow, not a modal.
 - It starts with a recipe URL import option and a manual-entry alternative.
 - Import review presents the extracted recipe as editable fields before save.
-  Manual entry uses the same recipe fields.
+  Its inferred cuisine tag is prefilled and editable. Manual entry uses the
+  same recipe fields and infers the cuisine tag at save when left blank.
 - The Save action remains after the editable content. Errors are shown with the
   form, and successful saves add the recipe to the selected week.
 - Direction text and its optional image URL remain paired by step during
