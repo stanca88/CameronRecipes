@@ -306,7 +306,8 @@ Empty states must explain the next useful action without excessive decoration.
 
 ### Brand and tone
 
-- Product name: **Cameron Family Table** in the in-app header.
+- Product name: **Cameron Family Table** in the in-app header on wider screens;
+  use **Cameron** in the compact mobile header and as the Home Screen app name.
 - Browser/site title: **Cameron Family Recipes**.
 - Use a simple chef-hat favicon and iOS Home Screen icon in the product's
   fresh lime and ink palette. Provide an opaque 180x180 Apple touch icon so

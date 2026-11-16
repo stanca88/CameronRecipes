@@ -3,6 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Cameron Family Recipes",
+  applicationName: "Cameron",
+  appleWebApp: { title: "Cameron" },
   description: "Family recipes, weekly meal planning, and one simple shopping list.",
   icons: {
     icon: "/favicon.svg?v=2",
