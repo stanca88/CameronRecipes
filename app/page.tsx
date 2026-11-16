@@ -971,7 +971,7 @@ export default function Home() {
             </div>
 
             <div className="mt-10">
-              <div className="relative mb-6 grid grid-cols-2 rounded-full bg-[#d6f59a] p-px" role="tablist" aria-label="Recipe details">
+              <div className="relative mb-6 grid grid-cols-2 rounded-full bg-[#edf3f6] p-px" role="tablist" aria-label="Recipe details">
                 <span aria-hidden="true" className={`pivot-tab-indicator absolute inset-y-px left-px w-[calc(50%-1px)] rounded-full bg-[#111613] ${recipeTab==="directions"?"translate-x-full":"translate-x-0"}`}/>
                 <button type="button" id="recipe-ingredients-tab" role="tab" aria-controls="recipe-ingredients-panel" aria-selected={recipeTab==="ingredients"} onClick={()=>setRecipeTab("ingredients")} className={`relative z-10 rounded-full px-4 py-3 text-sm font-bold transition-colors ${recipeTab==="ingredients"?"text-white":"text-[#111613]"}`}>Ingredients</button>
                 <button type="button" id="recipe-directions-tab" role="tab" aria-controls="recipe-directions-panel" aria-selected={recipeTab==="directions"} onClick={()=>setRecipeTab("directions")} className={`relative z-10 rounded-full px-4 py-3 text-sm font-bold transition-colors ${recipeTab==="directions"?"text-white":"text-[#111613]"}`}>Directions</button>

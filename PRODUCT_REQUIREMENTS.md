@@ -336,7 +336,7 @@ Empty states must explain the next useful action without excessive decoration.
 - Keep the recipe detail background neutral. Reuse each recipe card's control
   palette for the servings control. Use a consistent light-green hover surface
   for interactive controls inside the recipe and for direction steps. The
-  Ingredients/Directions pivot has a green unselected surface and a black
+  Ingredients/Directions pivot has a gray track and a black
   selected pill. Keep ingredient and direction checkboxes in their existing
   neutral style rather than tinting them with the recipe palette.
 - Keep recipe-card actions and selectors borderless, and theme dropdown

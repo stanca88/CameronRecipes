@@ -72,7 +72,7 @@ flowchart TD
 - A recipe's detail view keeps a neutral background and reuses its
   collection/plan card's control palette for servings. Use a consistent
   light-green hover surface for recipe controls and direction steps. The
-  Ingredients/Directions pivot has a green unselected surface and a black
+  Ingredients/Directions pivot has a gray track and a black
   selected pill; ingredient and direction checkboxes retain their neutral
   style.
 - Selecting a recipe opens its detail view. Planned recipe cards use the same
