@@ -1,3 +1,5 @@
+import { recipeTimeFromSchema } from "@/app/lib/recipe-time.mjs";
+
 type JsonLd = Record<string, unknown>;
 
 const NAMED_ENTITIES: Record<string, string> = {
@@ -196,6 +198,8 @@ function extractRecipeFromReadableText(markdown: string, fallbackHost: string) {
   const title = lines.find(line => /^Title:\s+/i.test(line))?.replace(/^Title:\s*/i, "")
     || lines.find(line => /^#\s+/i.test(line))?.replace(/^#\s*/, "")
     || "";
+  const totalTime = lines.find(line => /^\s*(?:total\s*time|time)\s*:/i.test(line))
+    ?.replace(/^\s*(?:total\s*time|time)\s*:\s*/i, "") || "";
 
   const ingredients: string[] = [];
   const directions: (string | ImportedDirection)[] = [];
@@ -267,6 +271,7 @@ function extractRecipeFromReadableText(markdown: string, fallbackHost: string) {
     image,
     directions,
     sourceName: fallbackHost.replace(/^www\./, ""),
+    time: recipeTimeFromSchema({ totalTime }),
   };
 }
 
@@ -312,6 +317,19 @@ function microdataFieldAll(block: string, prop: string): string[] {
   return results;
 }
 
+function microdataValue(block: string, prop: string): string {
+  const openTagRe = new RegExp(`<([a-zA-Z0-9]+)\\b(?=[^>]*\\bitemprop=["']${prop}["'])[^>]*>`, "i");
+  const match = openTagRe.exec(block);
+  if (!match) return "";
+  const value = /\b(?:content|datetime)=["']([^"']+)["']/i.exec(match[0])?.[1];
+  if (value) return decode(value).trim();
+  const tag = match[1];
+  if (tag.toLowerCase() === "meta") return "";
+  const start = match.index + match[0].length;
+  const close = new RegExp(`</${tag}\\s*>`, "i").exec(block.slice(start));
+  return close ? stripTags(block.slice(start, start + close.index)) : "";
+}
+
 function microdataDirections(block: string): string[] {
   const openTagRe = /<div\b[^>]*class=["'][^"']*(?:recipe-directions|recipe-instructions)[^"']*["'][^>]*>/i;
   const match = openTagRe.exec(block);
@@ -330,7 +348,12 @@ function extractMicrodataRecipe(html: string) {
   const directions = microdataDirections(block);
   const image = metaContent(html, "og:image");
   const sourceName = metaContent(html, "og:site_name");
-  return { title, ingredients, image, directions, sourceName };
+  const time = recipeTimeFromSchema({
+    totalTime: microdataValue(block, "totalTime"),
+    prepTime: microdataValue(block, "prepTime"),
+    cookTime: microdataValue(block, "cookTime"),
+  });
+  return { title, ingredients, image, directions, sourceName, time };
 }
 
 function tagTextValues(block: string, tagName: string): string[] {
@@ -372,6 +395,11 @@ function extractMarthaStewartRecipe(html: string) {
     image: decode(image),
     directions,
     sourceName: "Martha Stewart",
+    time: recipeTimeFromSchema({
+      totalTime: microdataValue(html, "totalTime"),
+      prepTime: microdataValue(html, "prepTime"),
+      cookTime: microdataValue(html, "cookTime"),
+    }),
   };
 }
 
@@ -411,6 +439,7 @@ export async function POST(request: Request) {
           image: microdata.image,
           directions: microdata.directions,
           sourceName: microdata.sourceName || url.hostname.replace(/^www\./, ""),
+          time: microdata.time,
         });
       }
       if (/marthastewart\.com$/i.test(url.hostname)) {
@@ -433,7 +462,12 @@ export async function POST(request: Request) {
     const directions = addStepImagesFromHtml(instructionText(recipe.recipeInstructions), html, url);
     if (!title || !ingredients.length) return Response.json({error:"We found the page, but its title or ingredients were missing. You can still use Add manually."},{status:422});
     const sourceName = publisherName(recipe.publisher) || url.hostname.replace(/^www\./, "");
-    return Response.json({title,ingredients,image,directions,sourceName});
+    const time = recipeTimeFromSchema({
+      totalTime: recipe.totalTime,
+      prepTime: recipe.prepTime,
+      cookTime: recipe.cookTime,
+    });
+    return Response.json({title,ingredients,image,directions,sourceName,time});
   } catch (error) {
     const message = error instanceof TypeError ? "Please enter a valid recipe URL." : error instanceof Error ? error.message : "We couldn't import that recipe.";
     return Response.json({error:message},{status:400});

@@ -98,6 +98,8 @@ its structured details.
 
 - Import the title, ingredients, directions, image, and source name when those
   fields are available.
+- Import the recipe's total time when available, preferring structured
+  `totalTime` and summing `prepTime` and `cookTime` only when both are present.
 - Show the imported information in an editable review step before saving,
   including its inferred cuisine tag.
 - Provide understandable errors when a page cannot be opened or does not
@@ -115,9 +117,13 @@ The product must support recipes that do not come from a website.
 - Require a recipe title.
 - Infer a cuisine tag from the title and ingredients when no tag is supplied.
 - Accept an optional image URL.
+- Accept an optional total recipe time for manual and imported recipes.
 - Accept one ingredient per line.
 - Accept one direction per line.
 - Let users edit all saved recipe fields later.
+- Display the total time on recipe collection cards, planned recipe cards, and
+  recipe details. Show `Time not provided` when no duration is available,
+  including for older recipes.
 - Keep the recipe's existing Edit control in the toolbar; activating it makes
   details, ingredients, and directions editable in place.
 - Keep the Back button at the same top-left position in the recipe collection
