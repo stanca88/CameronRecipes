@@ -295,6 +295,8 @@ The product must support family members seeing shared recipe and planning data.
 
 Empty states must explain the next useful action without excessive decoration.
 
+- Center empty-state messages and use a lighter gray font color throughout the
+  app.
 - An empty plan should invite the user to choose recipes.
 - An empty shopping list should invite the user to add meals.
 - Empty states should remain visually light and should not use a large
