@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   appleWebApp: { title: "Cameron" },
   description: "Family recipes, weekly meal planning, and one simple shopping list.",
   icons: {
-    icon: "/favicon.svg?v=2",
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    icon: "/favicon.svg?v=3",
+    apple: [{ url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" }],
   },
 };
 

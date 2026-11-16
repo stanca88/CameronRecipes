@@ -238,6 +238,8 @@ for the active week.
   matches a global item, while keeping the global item visible in its own
   section.
 - Separate the shopping view into `From meals` and `Global` tabs.
+- Keep the `From meals`/`Global` tab control sticky beneath the shared
+  week/navigation row while scrolling the shopping list.
 - In `Global`, separate items to get from completed items and let users move
   an item between those sections by checking or unchecking it.
 - Let users add free-form global shopping tasks.
@@ -315,13 +317,18 @@ Empty states must explain the next useful action without excessive decoration.
 - Product name: **Cameron Family Table** in the in-app header on wider screens;
   use **Cameron** in the compact mobile header and as the Home Screen app name.
 - Browser/site title: **Cameron Family Recipes**.
-- Use a simple chef-hat favicon and iOS Home Screen icon in the product's
-  fresh lime and ink palette. Provide an opaque 180x180 Apple touch icon so
-  Safari's Add to Home Screen experience uses the branded icon.
+- Use a chef-hat favicon and iOS Home Screen icon with a fresh-lime gradient
+  tile, softly shaded ivory hat, thin warm-ink outline, and subtle peach band.
+  Provide an opaque 180x180 Apple touch icon so Safari's Add to Home Screen
+  experience uses the branded icon.
 - The visual tone should feel fresh, bright, calm, and family-oriented.
-- Primary colors are crisp white and cool blue-gray surfaces, bright lime
-  accents, and ink-black text and actions, with light blue and soft peach as
-  secondary accents.
+- Primary colors are crisp white and cool blue-gray background surfaces where
+  intentional, neutral-gray borders, bright lime accents, and ink-black text and
+  actions, with light blue and soft peach as secondary accents. Neutral app,
+  form, recipe-detail, and shopping/global-group borders use true gray
+  (`#d6d6d6`); checkbox outlines use neutral gray (`#b5b5b5`). Shopping category
+  headers and the From meals/Global pivot track use neutral gray rather than
+  blue-gray.
 - Recipe imagery may rotate in the header along with short family-oriented
   taglines.
 - Use serif typography for meal titles and rotating family taglines; all other
@@ -347,54 +354,101 @@ Empty states must explain the next useful action without excessive decoration.
 - Use pill-shaped styling for action buttons, including toolbar controls;
   icon-only controls remain circular and text-only actions stay visually quiet.
 - Use a fully rounded pill shape for the Ingredients/Directions pivot and the
-  collapsible global-list section headings. Show the collapsible `To use` and
-  `Used` ingredient headings as large text without a colored background. Use
-  the same rounded treatment for the Cooking for servings control.
-- Keep the app background white. The shared-header week selector uses a
-  borderless black surface with white text and icon; the Recipes action keeps
-  its prominent book icon.
+  collapsible `To use` and `Used` recipe-detail section headings. Keep these
+  headings large and text-only, use the active recipe's theme color for their
+  text, and show a pointer cursor to indicate they collapse. They have no
+  colored hover background. Use the same rounded treatment for the Cooking for
+  servings control.
+- Keep the app background white. Global controls use the app's fresh-lime
+  palette; recipe cards and recipe content controls inside recipe cards or
+  recipe details use their recipe-derived palette. The recipe-detail toolbar's
+  **Add to week**, **Edit**, and **Delete** actions keep their white resting
+  surfaces and use the app's lime (`#d6f59a`) for both the background and border
+  on hover. The shared-header week selector and Back
+  action keep their lime surface and deeper-lime hover treatment. Plan/Shop
+  uses a lime selected pill and two equal-width tabs that do not overlap. On an
+  inactive tab, hover changes only its label and icon to white, not its
+  background; selected text stays ink-dark. The Plan meal-count badge uses a
+  light circle with white text while Plan is inactive, and a dark circle with
+  dark text while Plan is selected. The Recipes action keeps its prominent book
+  icon with a thin stroke, regular-weight label, and generous 112px mobile
+  circle. Keep global header-control labels regular-weight.
 - Use fully rounded pill shapes for the week selector, Plan/Shop navigation,
   and planned-meal day and chef selectors.
-- Keep Plan/Shop controls content-sized, with the selected pill filling the
-  navigation control's full height.
+- Keep the Plan/Shop group content-sized, with equal-width tabs and a selected
+  pill that fills exactly one tab's width and the full navigation height.
+- In the compact mobile week label, show a shortened date range with spaces
+  around a hyphen, such as `Nov 15 - 21`.
+- Keep the recipe collection toolbar and recipe detail Ingredients/Directions
+  pivot sticky while scrolling. Keep the photo-backed shared header extended
+  through the week/Plan/Shop controls, with those controls staying sticky over
+  the photo. Keep the Shop `From meals`/`Global` pivot sticky beneath them.
 - Use a neutral gray hover fill for Plan's `Add another recipe` action and the
   matching Global `Add a task` action.
 - Use varied lime, peach, and pale blue surfaces for recipe cards in the
   collection and weekly plan, without an outer border.
+- Assign each recipe a stable fallback theme from the lime, peach, and pale
+  blue palettes. When a recipe photo has a usable color, derive that recipe's
+  theme hue from the photo while preserving the base palette's lightness.
+  Reuse the resulting palette on that recipe's collection card, planned-meal
+  card, and detail controls; keep global navigation on the app palette. If the
+  photo cannot be sampled, keep the stable fallback. Use darker theme shades
+  for recipe time and tags so they remain legible on the card.
 - Keep the recipe detail background neutral. Reuse each recipe card's control
   palette for the servings control. Use rounded hover surfaces in the active
-  recipe's light theme color for detail controls, ingredient rows, and direction
-  steps. The
-  Ingredients/Directions pivot uses the active recipe's lighter control color
-  for its track and darker theme color for the selected pill. Keep ingredient
-  and direction checkbox outlines in the active recipe's darker theme color.
-  Keep unchecked fills neutral and use that darker color for checked fills.
+  recipe's light theme color for recipe-content controls, ingredient rows, and
+  direction steps. The Ingredients/Directions pivot uses the active recipe's
+  lighter control color for its track and darker theme color for the selected
+  pill. Both pivot labels are bold; the unselected label is gray at rest and
+  darkens on hover. Recipe ingredient and direction checkboxes use a neutral
+  gray outline (`#b5b5b5`) while unchecked and a solid active-recipe theme fill
+  when checked. Completed direction-step sections use the active recipe's light
+  control color and theme-colored border, not the app's green. Keep unchecked
+  fills neutral. Keep recipe-detail content aligned to the pivot's left edge,
+  with heading text and controls slightly inset within their rounded hover
+  surfaces.
   Keep recipe-detail content aligned to the pivot's left edge, with heading
   text and controls slightly inset within their rounded hover surfaces.
-- Keep recipe-card actions and selectors borderless, and theme dropdown
-  surfaces and highlighted options to match their card. Tint each recipe tag
+- Keep recipe-card actions and selectors borderless. Dropdown menus open on
+  white surfaces with a visible drop shadow from the moment they appear; their
+  hovered or focused options use a lighter theme tint, not the card surface.
+  Show recipe time in a darker shade of that card's theme. Tint each recipe tag
   with a darker shade of its card surface. Use the same all-caps, regular-weight
   style for recipe tags at 10px on mobile and 11px on desktop, with tight
   letter spacing. The `Mark as made` checkbox has a white unchecked fill, no
   border, and a card-specific checked tint. Its row hover uses a light,
   darker-than-card shade.
 - Stretch the From meals/Global selector across the available width, matching
-  the Ingredients/Directions pivot. Global's To get/Completed groups use the
-  same card, full-width header, and item-row styling as From meals category
-  groups.
+  the Ingredients/Directions pivot. Use a neutral-gray track (`#f2f2f2`), a
+  black selected pill, equal-width tabs, and no drop shadow on either sticky
+  pivot, including the recipe-detail Ingredients/Directions pivot. From meals
+  category headers and Global's To get/Completed headers use
+  a neutral-gray fill (`#f2f2f2`) and neutral-gray hover fill (`#e8e8e8`), with
+  compact 33px rows and 12px uppercase titles. Global groups otherwise keep the
+  same card, full-width header, and item-row styling as From meals categories.
+  Use true-gray (`#d6d6d6`) borders and dividers for these groups and other
+  neutral app/form/detail boundaries; use `#b5b5b5` for unchecked global
+  checkbox outlines.
 - Style the Global Add a task action like Plan's Add another recipe control.
   Activating it reveals a task field with embedded checkmark and cancel
   controls. The cancel control sits to the checkmark's right, and both icons
   use the same color. Enter adds the item; Escape or Cancel dismisses the field.
-- Plan/Shop, Ingredients/Directions, and From meals/Global pivots use a sliding
-  black selected pill that glides in both directions; respect reduced-motion
-  preferences.
-- Form fields use rounded white surfaces, soft blue-gray borders, restrained
-  1px borders, no drop shadows, and a visible lime focus ring. Error and disabled states remain
-  distinct and legible.
-- Visible control borders are 1px; controls do not use resting drop shadows.
+- Plan/Shop uses a sliding lime selected pill; Ingredients/Directions uses the
+  active recipe's derived theme; From meals/Global uses a black selected pill.
+  Each indicator glides in both directions and respects reduced-motion
+  preferences.   In the Ingredients/Directions pivot, both labels are bold; the unselected
+  label is gray at rest and darkens on hover. Inactive From meals/Global tabs
+  change text only on hover, with no background or drop-shadow change.
+- Form fields use rounded white surfaces, restrained 1px neutral-gray
+  (`#d6d6d6`) borders, no drop shadows, and a visible lime focus ring. Error
+  and disabled states remain distinct and legible.
+- Visible control borders are 1px; form controls do not use resting drop
+  shadows. Open dropdown menus retain their visible shadow without requiring
+  hover or focus.
 - Ingredient, direction-step, and meal-completion checkboxes use the same
-  24px circular control, 16px checkmark, and checked-state treatment.
+  24px circular control and 16px checkmark. Global checkboxes use neutral-gray
+  checked styling; recipe-detail checkboxes use the active recipe's theme color
+  when checked.
 - Switching between Ingredients and Directions slides the content horizontally;
   respect reduced-motion preferences.
 - Hover and pressed states may add subtle shadow or scale feedback, but must
