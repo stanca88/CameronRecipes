@@ -195,7 +195,8 @@ The recipe detail view must be usable while cooking.
 - Present Ingredients and Directions as a two-tab pivot in the recipe view.
 - In the Ingredients tab, keep the ingredient list visible without an outer
   title or collapse control. Use large text-only `To use` and `Used` headings
-  without a colored background; the subsections may still collapse.
+  without a colored background; align them with the ingredient rows and keep
+  their hover background padded to the left. The subsections may still collapse.
 - Let users check off ingredients they have used while cooking, with checked
   ingredients remaining visibly marked.
 - Organize recipe ingredients into collapsible `To use` and `Used` sections,
