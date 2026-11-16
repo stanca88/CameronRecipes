@@ -171,6 +171,9 @@ The product must support separate plans for this week and next week.
 - Let users mark a planned dinner done and move it from `To make` to `Done`
   for that week, with a way to move it back. Keep completed dinners in the
   weekly plan and shopping-list calculations until they are removed.
+- On each planned meal card, place the day and cook selectors above a green
+  `Mark as done` action at the bottom. Keep the day and cook placeholder text
+  the same color.
 - Synchronize each week's completed dinners across devices.
 
 ### FR-6: Servings
@@ -311,6 +314,51 @@ Empty states must explain the next useful action without excessive decoration.
   or interaction, ask the product owner before making that structural change.
 - Update `docs/EXPERIENCE_ARCHITECTURE.md` whenever an explicitly approved
   change alters the established experience.
+
+### Control treatment
+
+- Use pill-shaped styling for action buttons, including toolbar controls;
+  icon-only controls remain circular and text-only actions stay visually quiet.
+- Use fully rounded pill shapes for the Ingredients/Directions pivot and the
+  collapsible ingredient and global-list section headings. Use the same
+  rounded treatment for the Cooking for servings control.
+- Keep the app background white. The shared-header week selector uses a
+  borderless lime surface, and the Recipes action keeps its prominent book icon.
+- Use fully rounded pill shapes for the week selector, Plan/Shop navigation,
+  and planned-meal day and chef selectors.
+- Keep Plan/Shop controls content-sized, with the selected pill filling the
+  navigation control's full height.
+- Use varied lime, peach, and pale blue surfaces for recipe cards in the
+  collection and weekly plan, without an outer border.
+- Keep recipe-card actions and selectors borderless, and theme dropdown
+  surfaces and highlighted options to match their card. Tint each recipe tag
+  with a darker shade of its card surface and regular-weight tag text at 11px
+  on mobile and 12px on desktop. The `Mark as done` checkbox uses the card's
+  tinted control color, has no border, and its hover uses a light,
+  darker-than-card shade.
+- Keep the From meals/Global selector compact. Global's To get/Completed
+  groups use the same card, full-width header, and item-row styling as From
+  meals category groups.
+- Style the Global Add a task action like Plan's Add another recipe control.
+  Activating it reveals a task field with embedded checkmark and cancel
+  controls. The cancel control sits to the checkmark's right, and both icons
+  use the same color. Enter adds the item; Escape or Cancel dismisses the field.
+- Plan/Shop, Ingredients/Directions, and From meals/Global pivots use a sliding
+  black selected pill that glides in both directions; respect reduced-motion
+  preferences.
+- Form fields use rounded white surfaces, soft blue-gray borders, restrained
+  1px borders, no drop shadows, and a visible lime focus ring. Error and disabled states remain
+  distinct and legible.
+- Visible control borders are 1px; controls do not use resting drop shadows.
+- Ingredient, direction-step, and meal-completion checkboxes use the same
+  24px circular control, 16px checkmark, and checked-state treatment.
+- Switching between Ingredients and Directions slides the content horizontally;
+  respect reduced-motion preferences.
+- Hover and pressed states may add subtle shadow or scale feedback, but must
+  not change control order, placement, or dimensions. Respect reduced-motion
+  preferences.
+- Keep the Cameron Family Table palette; examples supplied for a control
+  refresh guide shape and interaction treatment, not a brand-color change.
 
 ### Responsive behavior
 

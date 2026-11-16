@@ -36,7 +36,12 @@ flowchart TD
 - The Recipes collection is its own full-page view. The shared photo/tagline
   header is not shown in this view.
 - In the shared header, the circular **Recipes** action returns to the
-  collection. **Plan** and **Shop** are the two tabs beside the week selector.
+  collection and keeps a prominent book icon above its label. The app
+  background is white, and the week selector is lime with no border. The week
+  selector and **Plan**/**Shop** navigation use fully rounded pill shapes.
+  Keep the controls content-sized, with the selected pill filling the full
+  navigation height. The selected pill glides in both directions and respects
+  reduced-motion preferences.
 - The week selector chooses **This week**, **Next week**, or **History**.
   History is reached through this selector, not by adding another primary
   navigation tab.
@@ -56,7 +61,13 @@ flowchart TD
 - Search and tag filtering narrow the existing collection; they do not replace
   or hide its primary toolbar.
 - Recipe cards show the meal image, title, tag, and available source link.
-  The card's meal title is serif; supporting content and actions are sans-serif.
+  Collection and planned-meal cards use varied pastel lime, peach, and blue
+  surfaces without an outer border. Their actions and selectors are borderless,
+  dropdown surfaces and highlighted options match the card palette, and tags
+  use a darker shade of the card surface with regular-weight responsive 11px
+  mobile and 12px desktop text. The `Mark as done` checkbox uses the card tint
+  without a border, and its hover uses a light, darker-than-card shade. The
+  card's meal title is serif; supporting content and actions are sans-serif.
 - Selecting a recipe opens its detail view. Planned recipe cards use the same
   recipe identity and also open that detail view.
 
@@ -73,6 +84,9 @@ The content order is deliberate:
    it on wider screens and below it on narrow screens.
 5. A divider, then the **Ingredients** / **Directions** tab pivot.
 6. The selected tab's content.
+
+Switching tabs slides the selected content horizontally. Disable this
+transition when reduced motion is requested.
 
 The toolbar is the stable home for recipe actions. Do not move Edit to the
 title, image, page footer, or a separate menu. On mobile, controls may use
@@ -98,6 +112,13 @@ the same.
 
 - Ingredients and Directions remain two tabs, not separate top-level routes or
   navigation destinations.
+- The Ingredients/Directions pivot and collapsible ingredient section headers
+  use fully rounded pill shapes.
+- The Ingredients/Directions selected pill glides in both directions and
+  respects reduced-motion preferences; the content panels slide horizontally.
+- The **Cooking for** servings control uses the same fully rounded treatment.
+- The empty `Used` ingredients message remains light and uses fully rounded
+  corners.
 - The Ingredients tab has a visible section heading and no outer
   collapse/expand control. Its `To use` and `Used` subsections remain
   individually collapsible and move ingredients when they are checked or
@@ -124,7 +145,10 @@ the same.
   and Plan/Shop navigation in its lower control row.
 - Planned meals are grouped under **To make** and **Done**. Completion moves a
   meal between these groups without removing it from the week's plan.
-- Each meal card retains its date/day, cook, servings, and completion actions.
+- Each meal card keeps its day and cook selectors above a green **Mark as
+  done** pill action at the bottom. Keep the day and cook placeholders the
+  same color and the checkbox aligned with the card content.
+- Each meal card retains its servings and completion behavior.
 - **Add another recipe** opens recipe picking within the plan flow. Choosing
   a recipe should not change the location of the week selector or primary
   navigation.
@@ -137,12 +161,18 @@ the same.
 - The shopping view has exactly two source tabs: **From meals** and
   **Global**.
 - **From meals** displays generated ingredients grouped by grocery category.
-  Category cards keep their rounded lime headers, checkboxes, and existing
-  collapse controls. On wider screens, columns are balanced and aligned from
-  the top.
-- **Global** keeps the add-item input first, followed by the collapsible
-  **To get** and **Completed** sections. Checking an item moves it between
-  these sections; removal stays beside the item.
+  Category cards keep rounded light-gray headers, shared-size checkboxes, and
+  existing collapse controls. The **From meals** and **Global** source tabs use
+  the same black selected treatment as the recipe detail tabs, with a compact
+  width and sliding active pill that respects reduced-motion preferences. On
+  wider screens, columns are balanced and aligned from the top.
+- **Global** starts with an **Add a task** action styled like Plan's **Add
+  another recipe** control. Activating it reveals a task field with embedded
+  checkmark and cancel controls; cancel is to the checkmark's right and both
+  icons use the same color. Enter adds the item, while Escape or Cancel
+  dismisses the field. Its collapsible **To get** and **Completed**
+  groups match the **From meals** category cards' headers and item-row styling
+  while retaining counts, checkboxes, and remove actions.
 - Keep the empty shopping state's action connected to adding meals.
 
 ### History
@@ -160,6 +190,10 @@ the same.
   destructive/error emphasis. Do not revert to the former cream palette unless
   requested.
 - Keep the existing rounded card and lime section-header treatment.
+- Use pill shapes for action and toolbar buttons; icon-only controls remain
+  circular. Use rounded form controls with soft blue-gray 1px borders, no drop
+  shadows, and a lime focus ring. Keep tertiary text actions quiet and preserve
+  clear error, disabled, checked, and reduced-motion states.
 - Use a simple chef-hat favicon on a rounded lime tile, with a white hat and
   ink outline.
 - Use serif only for meal/recipe titles and the rotating family tagline. All
