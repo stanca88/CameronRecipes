@@ -60,6 +60,8 @@ Completed dinner IDs are stored under a namespaced metadata key in the existing
 `days` object, so no database schema change is required.
 Archived meals are stored as a JSON array so history remains intact if a live
 recipe is later deleted.
+The existing `recipes.time` text field stores an optional total recipe
+duration; no schema migration is required to display and edit recipe times.
 
 ## Current Access Model
 

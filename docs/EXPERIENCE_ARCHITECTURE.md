@@ -84,6 +84,8 @@ flowchart TD
   fills remain neutral and checked fills use that darker color.
 - Selecting a recipe opens its detail view. Planned recipe cards use the same
   recipe identity and also open that detail view.
+- Show each recipe's normalized total time on its collection card, planned
+  card, and detail view. Use `Time not provided` when a duration is unavailable.
 
 ### Recipe detail
 
@@ -157,7 +159,10 @@ week**.
 - It starts with a recipe URL import option and a manual-entry alternative.
 - Import review presents the extracted recipe as editable fields before save.
   Its inferred cuisine tag is prefilled and editable. Manual entry uses the
-  same recipe fields and infers the cuisine tag at save when left blank.
+  same recipe fields, including optional total time, and infers the cuisine tag
+  at save when left blank.
+- Import structured `totalTime` when available; otherwise combine `prepTime`
+  and `cookTime` only when both are available.
 - The Save action remains after the editable content. Errors are shown with the
   form, and successful saves add the recipe to the selected week.
 - Direction text and its optional image URL remain paired by step during
