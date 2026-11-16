@@ -333,6 +333,12 @@ Empty states must explain the next useful action without excessive decoration.
   navigation control's full height.
 - Use varied lime, peach, and pale blue surfaces for recipe cards in the
   collection and weekly plan, without an outer border.
+- Keep the recipe detail background neutral. Reuse each recipe card's control
+  palette for the servings control. Use a consistent light-green hover surface
+  for interactive controls inside the recipe and for direction steps. The
+  Ingredients/Directions pivot has a green unselected surface and a black
+  selected pill. Keep ingredient and direction checkboxes in their existing
+  neutral style rather than tinting them with the recipe palette.
 - Keep recipe-card actions and selectors borderless, and theme dropdown
   surfaces and highlighted options to match their card. Tint each recipe tag
   with a darker shade of its card surface. Use the same all-caps, regular-weight

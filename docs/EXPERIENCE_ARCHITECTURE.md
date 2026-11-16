@@ -69,6 +69,12 @@ flowchart TD
   and 11px desktop text. The `Mark as done` checkbox uses the card tint
   without a border, and its hover uses a light, darker-than-card shade. The
   card's meal title is serif; supporting content and actions are sans-serif.
+- A recipe's detail view keeps a neutral background and reuses its
+  collection/plan card's control palette for servings. Use a consistent
+  light-green hover surface for recipe controls and direction steps. The
+  Ingredients/Directions pivot has a green unselected surface and a black
+  selected pill; ingredient and direction checkboxes retain their neutral
+  style.
 - Selecting a recipe opens its detail view. Planned recipe cards use the same
   recipe identity and also open that detail view.
 
@@ -165,8 +171,8 @@ the same.
 - **From meals** displays generated ingredients grouped by grocery category.
   Category cards keep rounded light-gray headers, shared-size checkboxes, and
   existing collapse controls. The **From meals** and **Global** source tabs use
-  the same black selected treatment as the recipe detail tabs, stretch across
-  their available width, and use a sliding active pill that respects
+  a black selected pill, stretch across their available width, and use a
+  sliding active pill that respects
   reduced-motion preferences. On wider screens, columns are balanced and
   aligned from the top.
 - **Global** starts with an **Add a task** action styled like Plan's **Add
