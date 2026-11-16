@@ -178,7 +178,8 @@ week**.
 - Each meal card retains its servings and completion behavior.
 - **Add another recipe** opens recipe picking within the plan flow. Choosing
   a recipe should not change the location of the week selector or primary
-  navigation.
+  navigation. Its hover fill is neutral gray, matching Global's **Add a task**
+  action.
 - The empty plan invites the user to choose recipes without adding a new
   navigation path.
 
