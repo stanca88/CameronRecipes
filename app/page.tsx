@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, type CSSProperties } from "react";
 import { ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, ChevronDown, ChevronUp, Clock, History as HistoryIcon, Minus, MoreHorizontal, Pencil, Plus, RefreshCw, Save, Search, ShoppingBasket, Trash2, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { subscribeToShoppingList, subscribeToGlobalShoppingList, saveShoppingLis
 import { planDays, readDoneRecipes, selectedDoneRecipes, toggleDoneRecipe } from "@/app/lib/weekly-plan";
 import { MOCK_RECIPES } from "@/app/lib/mock-recipes";
 import { formatRecipeTime } from "@/app/lib/recipe-time.mjs";
+import { extractRecipePalette, type RecipePalette } from "@/app/lib/recipe-palette.mjs";
 
 type Ingredient = { name: string; amount: number; unit: string; category: string; hasQty?: boolean };
 type DirectionStep = { text: string; image?: string };
@@ -27,13 +28,45 @@ type RecipeEditDrafts = {
 type WeeklyPlan = { selected: string[]; done: string[]; servings: Record<string,number>; checked: string[]; chefs: Record<string,string>; days: Record<string,string> };
 type SavedWeek = { id: string; label: string; savedAt: string; meals: { id: string; title: string; emoji: string; people: number; chef?: string; day?: string }[] };
 type ShoppingItem = { id: string; ingredient_key: string; ingredient_name: string; ingredient_amount: number; ingredient_unit: string; ingredient_category: string; checked: boolean };
+const fallbackRecipePalettes: RecipePalette[] = [
+  { surfaceColor: "#d6f59a", controlColor: "#e8f7c7", controlHoverColor: "#c8eb82", controlHoverLightColor: "#e8f7c7", menuColor: "#d6f59a", menuFocusColor: "#b5d96a", checkboxChecked: "#b5d96a", timeColor: "#4b5c29", tagColor: "#b5d96a", tagHoverColor: "#a6ce5a", doneHoverColor: "#c8eb82" },
+  { surfaceColor: "#fde8d5", controlColor: "#fff3e8", controlHoverColor: "#f9d8b8", controlHoverLightColor: "#fff3e8", menuColor: "#fde8d5", menuFocusColor: "#efc397", checkboxChecked: "#efc397", timeColor: "#80512f", tagColor: "#efc397", tagHoverColor: "#e6b27f", doneHoverColor: "#f9d8b8" },
+  { surfaceColor: "#dcecf2", controlColor: "#edf5f8", controlHoverColor: "#cfe3eb", controlHoverLightColor: "#edf5f8", menuColor: "#dcecf2", menuFocusColor: "#b8d2de", checkboxChecked: "#b8d2de", timeColor: "#355260", tagColor: "#b8d2de", tagHoverColor: "#a7c7d5", doneHoverColor: "#cfe3eb" },
+];
+
+function fallbackRecipePaletteFor(id: string): RecipePalette {
+  let hash = 0;
+  for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return fallbackRecipePalettes[hash % fallbackRecipePalettes.length];
+}
 
 function RecipeTime({ time }: { time: string }) {
-  return <p className="flex items-center gap-1.5 text-sm text-[#59665e]"><Clock size={15} aria-hidden="true"/><span>{formatRecipeTime(time)}</span></p>;
+  return <p className="flex items-center gap-1.5 text-sm text-[var(--recipe-time,#59665e)]"><Clock size={15} aria-hidden="true"/><span>{formatRecipeTime(time)}</span></p>;
+}
+
+function recipeImageFor(recipe: Pick<Recipe, "id" | "image">): string {
+  return recipe.image || (recipe.id === "roasted-veg-bowl" ? "/veg-bowl.jpg"
+    : recipe.id === "lemon-herb-chicken" ? "/lemon-chicken.jpg"
+      : recipe.id === "beef-stew" ? "/beef-stew.jpg" : "");
+}
+
+function recipePaletteStyle(palette: RecipePalette): CSSProperties {
+  return {
+    "--recipe-surface": palette.surfaceColor,
+    "--recipe-control": palette.controlColor,
+    "--recipe-control-hover": palette.controlHoverColor,
+    "--recipe-control-hover-light": palette.controlHoverLightColor,
+    "--recipe-menu": palette.menuColor,
+    "--recipe-menu-focus": palette.controlHoverLightColor,
+    "--recipe-time": palette.timeColor,
+    "--recipe-tag": palette.tagColor,
+    "--recipe-tag-hover": palette.tagHoverColor,
+    "--recipe-done-hover": palette.doneHoverColor,
+  } as CSSProperties;
 }
 
 function BackButton({ onClick, disabled=false }: { onClick: () => void; disabled?: boolean }) {
-  return <Button type="button" onClick={onClick} disabled={disabled} aria-label="Back" className="h-11 shrink-0 gap-1.5 rounded-lg border-0 bg-[#111613] px-4 text-sm font-semibold text-white hover:bg-[#2d3b32] hover:text-white disabled:opacity-50 sm:h-9"><ArrowLeft size={18}/><span>Back</span></Button>;
+  return <Button type="button" onClick={onClick} disabled={disabled} aria-label="Back" className="h-11 shrink-0 gap-1.5 rounded-lg border-0 bg-[#d6f59a] px-4 text-sm font-semibold text-[#111613] hover:bg-[#c9ef78] hover:text-[#111613] disabled:opacity-50 sm:h-9"><ArrowLeft size={18}/><span>Back</span></Button>;
 }
 
 const starterRecipes: Recipe[] = [
@@ -113,7 +146,7 @@ function weekRangeShort(offset = 0) {
   const right = start.getMonth()===end.getMonth()
     ? String(end.getDate())
     : end.toLocaleDateString("en-US", { month:"short", day:"numeric" });
-  return `${left}–${right}`;
+  return `${left} - ${right}`;
 }
 
 function weekRangeFromKey(key:string) {
@@ -435,6 +468,7 @@ function parseIngredientLine(line:string):Ingredient {
 
 export default function Home() {
   const [recipes,setRecipes]=useState<Recipe[]>([]);
+  const [derivedRecipePalettes,setDerivedRecipePalettes]=useState<Record<string,RecipePalette>>({});
   const [weekOffset,setWeekOffset]=useState<0|1>(0);
   const [doneCollapsed,setDoneCollapsed]=useState(false);
   const [plans,setPlans]=useState<Record<string,WeeklyPlan>>({[weekKey(0)]:{selected:["roasted-veg-bowl","lemon-herb-chicken"],done:[],servings:{"roasted-veg-bowl":4,"lemon-herb-chicken":4},checked:[],chefs:{},days:{}}});
@@ -469,9 +503,11 @@ export default function Home() {
   const [collapsed,setCollapsed]=useState<Record<string,boolean>>({});
   const [loaded,setLoaded]=useState(false);
   const [view,setView]=useState("plan");
+  const [stickyHeaderTop,setStickyHeaderTop]=useState(0);
   const [mockCategoryPreview,setMockCategoryPreview]=useState(false);
   const [mockRecipePreview,setMockRecipePreview]=useState(false);
   const [shopTab,setShopTab]=useState<"meals"|"global">("meals");
+  const [revealedRemoveRecipeId,setRevealedRemoveRecipeId]=useState<string|null>(null);
   const [preRecipesView,setPreRecipesView]=useState("plan");
   const [planPicking,setPlanPicking]=useState(false);
   const [planQuery,setPlanQuery]=useState("");
@@ -490,10 +526,49 @@ export default function Home() {
   const [planSynced,setPlanSynced]=useState<Record<string,boolean>>({});
   const [recipesLoaded,setRecipesLoaded]=useState(false);
   const unsubscribeRef=useRef<(() => void)|null>(null);
+  const sharedHeaderRef=useRef<HTMLElement|null>(null);
+  const sharedControlsRef=useRef<HTMLDivElement|null>(null);
+  const recipePaletteCacheRef=useRef(new Map<string,Promise<RecipePalette|null>>());
+  const removeLongPressTimerRef=useRef<number|null>(null);
+  const longPressTriggeredRef=useRef(false);
   const globalUnsubscribeRef=useRef<(() => void)|null>(null);
   const planUnsubscribeRef=useRef<(() => void)|null>(null);
   const historyUnsubscribeRef=useRef<(() => void)|null>(null);
+  useEffect(()=>()=>{if(removeLongPressTimerRef.current!==null)window.clearTimeout(removeLongPressTimerRef.current)},[]);
+  useEffect(()=>{
+    const header=sharedHeaderRef.current;
+    const controls=sharedControlsRef.current;
+    if(!header||!controls)return;
+    const updateStickyOffset=()=>{
+      const next=Math.round(controls.getBoundingClientRect().height-header.getBoundingClientRect().height);
+      setStickyHeaderTop(current=>current===next?current:next);
+    };
+    updateStickyOffset();
+    const observer=new ResizeObserver(updateStickyOffset);
+    observer.observe(header);
+    observer.observe(controls);
+    return()=>observer.disconnect();
+  },[view]);
   const activeWeekKey=weekKey(weekOffset);
+  useEffect(()=>{
+    let active=true;
+    const paletteRequests=recipes.map(async recipe=>{
+      const imageUrl=recipeImageFor(recipe);
+      if(!imageUrl)return[recipe.id,null] as const;
+      const basePalette=fallbackRecipePaletteFor(recipe.id);
+      const cacheKey=`${imageUrl}:${basePalette.surfaceColor}`;
+      let request=recipePaletteCacheRef.current.get(cacheKey);
+      if(!request){
+        request=extractRecipePalette(imageUrl,basePalette).catch(()=>null);
+        recipePaletteCacheRef.current.set(cacheKey,request);
+      }
+      return[recipe.id,await request] as const;
+    });
+    void Promise.all(paletteRequests).then(entries=>{
+      if(active)setDerivedRecipePalettes(Object.fromEntries(entries.filter((entry):entry is readonly [string,RecipePalette]=>entry[1]!==null)));
+    });
+    return()=>{active=false};
+  },[recipes]);
   const activePlan=plans[activeWeekKey]||{selected:[],done:[],servings:{},checked:[],chefs:{},days:{}};
   const visibleRecipeIds=new Set(recipes.map(recipe=>recipe.id));
   const selected=(activePlan.selected||[]).filter(id=>visibleRecipeIds.has(id));
@@ -869,35 +944,99 @@ export default function Home() {
   const nav=[{value:"plan",label:"Plan",icon:ChefHat},{value:"shop",label:"Shop",icon:ShoppingBasket}];
   const changeView=(v:string)=>{if(v!=="recipes"&&v!=="history")setPreRecipesView(v);setView(v)};
   const goAway=(v:string)=>{if(view!=="recipes"&&view!=="history")setPreRecipesView(view);setView(v)};
-  const recipeCardPalettes = [
-    { surface: "bg-[#d6f59a]", control: "bg-[#e8f7c7]", controlHover: "hover:bg-[#c8eb82]", controlHoverLight: "hover:bg-[#e8f7c7]", menu: "bg-[#d6f59a]", menuFocus: "focus:bg-[#b5d96a]", checkboxChecked: "#b5d96a", tag: "bg-[#b5d96a]", tagHover: "hover:bg-[#a6ce5a]", doneHover: "hover:bg-[#c8eb82]" },
-    { surface: "bg-[#fde8d5]", control: "bg-[#fff3e8]", controlHover: "hover:bg-[#f9d8b8]", controlHoverLight: "hover:bg-[#fff3e8]", menu: "bg-[#fde8d5]", menuFocus: "focus:bg-[#efc397]", checkboxChecked: "#efc397", tag: "bg-[#efc397]", tagHover: "hover:bg-[#e6b27f]", doneHover: "hover:bg-[#f9d8b8]" },
-    { surface: "bg-[#dcecf2]", control: "bg-[#edf5f8]", controlHover: "hover:bg-[#cfe3eb]", controlHoverLight: "hover:bg-[#edf5f8]", menu: "bg-[#dcecf2]", menuFocus: "focus:bg-[#b8d2de]", checkboxChecked: "#b8d2de", tag: "bg-[#b8d2de]", tagHover: "hover:bg-[#a7c7d5]", doneHover: "hover:bg-[#cfe3eb]" },
-  ] as const;
-  const recipeCardPaletteFor = (id: string) => {
-    let hash = 0;
-    for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-    return recipeCardPalettes[hash % recipeCardPalettes.length];
+  const recipePaletteClasses = {
+    surface: "bg-[var(--recipe-surface)]",
+    control: "bg-[var(--recipe-control)]",
+    controlHover: "hover:bg-[var(--recipe-control-hover)]",
+    controlHoverLight: "hover:bg-[var(--recipe-control-hover-light)]",
+    menu: "bg-white shadow-xl ring-1 ring-black/5",
+    menuFocus: "hover:bg-[var(--recipe-control-hover-light)] focus:bg-[var(--recipe-menu-focus)] data-[highlighted]:bg-[var(--recipe-menu-focus)]",
+    tag: "bg-[var(--recipe-tag)]",
+    tagHover: "hover:bg-[var(--recipe-tag-hover)]",
+    doneHover: "hover:bg-[var(--recipe-done-hover)]",
   };
-  const activeRecipePalette = activeRecipe ? recipeCardPaletteFor(activeRecipe.id) : recipeCardPalettes[0];
-  const recipeGrid=(list:Recipe[])=><div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{list.map(r=><article key={r.id} onClick={()=>openRecipe(r)} className={`group relative cursor-pointer overflow-hidden rounded-[1.75rem] ${recipeCardPaletteFor(r.id).surface} transition hover:-translate-y-1 hover:shadow-lg`}><div className="absolute left-3 top-3 z-10"><TooltipProvider><Tooltip><TooltipTrigger aria-label={selected.includes(r.id)?`Remove ${r.title} from ${weekRange(weekOffset)}`:`Add ${r.title} to ${weekRange(weekOffset)}`} onClick={event=>{event.stopPropagation();toggle(r.id)}} className={`grid size-11 place-items-center rounded-full shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 sm:size-10 ${selected.includes(r.id)?"bg-[#111613] text-white hover:bg-[#2d3b32]":`${recipeCardPaletteFor(r.id).control} ${recipeCardPaletteFor(r.id).controlHover} text-[#111613]`}`}>{selected.includes(r.id)?<Check size={20}/>:<Plus size={21}/>}</TooltipTrigger><TooltipContent side="top" sideOffset={6} className="bg-[#151b17] text-white">{selected.includes(r.id)?`Remove from ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}</TooltipContent></Tooltip></TooltipProvider></div><div className="absolute right-3 top-3 z-10 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"><DropdownMenu><DropdownMenuTrigger asChild><button onClick={event=>event.stopPropagation()} aria-label={`More actions for ${r.title}`} className={`grid size-11 place-items-center rounded-full ${recipeCardPaletteFor(r.id).control} ${recipeCardPaletteFor(r.id).controlHover} text-[#1e2822] shadow-sm backdrop-blur-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 sm:size-10`}><MoreHorizontal size={21}/></button></DropdownMenuTrigger><DropdownMenuContent align="end" className={`min-w-44 border-0 ${recipeCardPaletteFor(r.id).menu}`}><DropdownMenuItem className={recipeCardPaletteFor(r.id).menuFocus} onClick={event=>{event.stopPropagation();openEditRecipe(r)}}><Pencil/>Edit recipe</DropdownMenuItem><DropdownMenuItem className={recipeCardPaletteFor(r.id).menuFocus} variant="destructive" onClick={event=>{event.stopPropagation();setRecipeToDelete(r)}}><Trash2/>Delete recipe</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>{(r.image|| (r.id==="roasted-veg-bowl"?"/veg-bowl.jpg": r.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": r.id==="beef-stew"?"/beef-stew.jpg":"")) ? <img src={r.image|| (r.id==="roasted-veg-bowl"?"/veg-bowl.jpg": r.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": r.id==="beef-stew"?"/beef-stew.jpg":"")} alt={r.title} className="h-44 w-full object-cover"/> : <div className={`grid h-36 place-items-center ${recipeCardPaletteFor(r.id).surface} text-5xl`}>{r.emoji}</div>}<div className="min-w-0 p-5"><h3 className="truncate font-serif text-xl font-bold" title={r.title}>{r.title}</h3><div className="mt-2"><RecipeTime time={r.time}/></div><div className="mt-1.5 flex flex-wrap items-center gap-2"><button type="button" onClick={event=>{event.stopPropagation();setTagFilter(recipeTag(r));setQuery("")}} className={`rounded-full ${recipeCardPaletteFor(r.id).tag} ${recipeCardPaletteFor(r.id).tagHover} px-2 py-1 text-[10px] font-normal uppercase tracking-[.08em] text-[#151b17] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 sm:text-[11px]`}>{recipeTag(r)}</button>{r.sourceUrl&&<a href={r.sourceUrl} target="_blank" rel="noreferrer" className="truncate text-sm font-medium text-[#151b17] underline decoration-[#151b17]/35 underline-offset-2 hover:decoration-[#151b17]" onClick={event=>event.stopPropagation()}>{r.sourceName||"View original recipe"}</a>}</div></div></article>)}</div>;
+  const recipeCardPaletteFor = (id: string) => {
+    return { ...recipePaletteClasses, ...(derivedRecipePalettes[id] || fallbackRecipePaletteFor(id)) };
+  };
+  const cancelRemoveLongPress=()=>{
+    if(removeLongPressTimerRef.current!==null){
+      window.clearTimeout(removeLongPressTimerRef.current);
+      removeLongPressTimerRef.current=null;
+    }
+  };
+  const activeRecipePalette = recipeCardPaletteFor(activeRecipe?.id || "");
+  const recipeGrid=(list:Recipe[])=><div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{list.map(r=>{
+    const palette=recipeCardPaletteFor(r.id);
+    const paletteStyle=recipePaletteStyle(palette);
+    const image=recipeImageFor(r);
+    return <article key={r.id} onClick={()=>openRecipe(r)} style={paletteStyle} className={`group relative cursor-pointer overflow-hidden rounded-[1.75rem] ${palette.surface} transition hover:-translate-y-1 hover:shadow-lg`}>
+      <div className="absolute left-3 top-3 z-10"><TooltipProvider><Tooltip><TooltipTrigger aria-label={selected.includes(r.id)?`Remove ${r.title} from ${weekRange(weekOffset)}`:`Add ${r.title} to ${weekRange(weekOffset)}`} onClick={event=>{event.stopPropagation();toggle(r.id)}} className={`grid size-11 place-items-center rounded-full shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 sm:size-10 ${selected.includes(r.id)?"bg-[#111613] text-white hover:bg-[#2d3b32]":`${palette.control} ${palette.controlHover} text-[#111613]`}`}>{selected.includes(r.id)?<Check size={20}/>:<Plus size={21}/>}</TooltipTrigger><TooltipContent side="top" sideOffset={6} className="bg-[#151b17] text-white">{selected.includes(r.id)?`Remove from ${weekRange(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}</TooltipContent></Tooltip></TooltipProvider></div>
+      <div className="absolute right-3 top-3 z-10 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+        <DropdownMenu><DropdownMenuTrigger asChild><button onClick={event=>event.stopPropagation()} aria-label={`More actions for ${r.title}`} className={`grid size-11 place-items-center rounded-full ${palette.control} ${palette.controlHover} text-[#1e2822] shadow-sm backdrop-blur-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 sm:size-10`}><MoreHorizontal size={21}/></button></DropdownMenuTrigger><DropdownMenuContent align="end" style={paletteStyle} className={`min-w-44 border-0 ${palette.menu}`}><DropdownMenuItem className={palette.menuFocus} onClick={event=>{event.stopPropagation();openEditRecipe(r)}}><Pencil/>Edit recipe</DropdownMenuItem><DropdownMenuItem className={palette.menuFocus} variant="destructive" onClick={event=>{event.stopPropagation();setRecipeToDelete(r)}}><Trash2/>Delete recipe</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+      </div>
+      {image ? <img src={image} alt={r.title} className="h-44 w-full object-cover"/> : <div className={`grid h-36 place-items-center ${palette.surface} text-5xl`}>{r.emoji}</div>}
+      <div className="min-w-0 p-5"><h3 className="truncate font-serif text-xl font-bold" title={r.title}>{r.title}</h3><div className="mt-2"><RecipeTime time={r.time}/></div><div className="mt-1.5 flex flex-wrap items-center gap-2"><button type="button" onClick={event=>{event.stopPropagation();setTagFilter(recipeTag(r));setQuery("")}} className={`rounded-full ${palette.tag} ${palette.tagHover} px-2 py-1 text-[10px] font-normal uppercase tracking-[.08em] text-[#151b17] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 sm:text-[11px]`}>{recipeTag(r)}</button>{r.sourceUrl&&<a href={r.sourceUrl} target="_blank" rel="noreferrer" className="truncate text-sm font-medium text-[#151b17] underline decoration-[#151b17]/35 underline-offset-2 hover:decoration-[#151b17]" onClick={event=>event.stopPropagation()}>{r.sourceName||"View original recipe"}</a>}</div></div>
+    </article>;
+  })}</div>;
 
-  const planRecipeGrid=(list:Recipe[])=><div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{list.map(r=><article key={r.id} onClick={()=>openRecipe(r)} className={`group relative cursor-pointer overflow-hidden rounded-[1.75rem] ${recipeCardPaletteFor(r.id).surface} transition hover:-translate-y-1 hover:shadow-lg`}><div className="absolute right-3 top-3 z-10 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"><button onClick={event=>{event.stopPropagation();toggle(r.id)}} aria-label={`Remove ${r.title} from ${weekOffset===0?"this week":"next week"}`} className={`grid size-11 place-items-center rounded-full ${recipeCardPaletteFor(r.id).control} ${recipeCardPaletteFor(r.id).controlHover} text-[#1e2822] shadow-sm backdrop-blur-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 sm:size-10`}><X size={20}/></button></div>{(r.image|| (r.id==="roasted-veg-bowl"?"/veg-bowl.jpg": r.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": r.id==="beef-stew"?"/beef-stew.jpg":"")) ? <img src={r.image|| (r.id==="roasted-veg-bowl"?"/veg-bowl.jpg": r.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": r.id==="beef-stew"?"/beef-stew.jpg":"")} alt={r.title} className="h-44 w-full object-cover"/> : <div className={`grid h-36 place-items-center ${recipeCardPaletteFor(r.id).surface} text-5xl`}>{r.emoji}</div>}
+  const planRecipeGrid=(list:Recipe[])=><div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{list.map(r=>{
+    const palette=recipeCardPaletteFor(r.id);
+    const paletteStyle=recipePaletteStyle(palette);
+    const image=recipeImageFor(r);
+    return <article
+      key={r.id}
+      onPointerDown={event=>{
+        longPressTriggeredRef.current=false;
+        if(event.pointerType!=="touch"||event.target instanceof Element&&event.target.closest("button, a, input, [role='combobox'], [role='checkbox']"))return;
+        cancelRemoveLongPress();
+        removeLongPressTimerRef.current=window.setTimeout(()=>{
+          removeLongPressTimerRef.current=null;
+          longPressTriggeredRef.current=true;
+          setRevealedRemoveRecipeId(r.id);
+        },550);
+      }}
+      onPointerMove={event=>{if(event.pointerType==="touch")cancelRemoveLongPress()}}
+      onPointerUp={cancelRemoveLongPress}
+      onPointerCancel={cancelRemoveLongPress}
+      onPointerLeave={cancelRemoveLongPress}
+      onContextMenu={event=>{
+        if(window.matchMedia("(hover: none)").matches&&!(event.target instanceof Element&&event.target.closest("button, a, input, [role='combobox'], [role='checkbox']"))){
+          event.preventDefault();
+          longPressTriggeredRef.current=true;
+          setRevealedRemoveRecipeId(r.id);
+        }
+      }}
+      onClick={event=>{
+        if(longPressTriggeredRef.current){
+          longPressTriggeredRef.current=false;
+          event.preventDefault();
+          return;
+        }
+        setRevealedRemoveRecipeId(null);
+        openRecipe(r);
+      }}
+      style={paletteStyle}
+      className={`group relative cursor-pointer overflow-hidden rounded-[1.75rem] ${palette.surface} transition hover:-translate-y-1 hover:shadow-lg`}
+    >
+      <div style={revealedRemoveRecipeId===r.id?{opacity:1,pointerEvents:"auto"}:undefined} className={`absolute right-3 top-3 z-10 transition-opacity ${revealedRemoveRecipeId===r.id?"pointer-events-auto opacity-100":"pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100"}`}><button onClick={event=>{event.stopPropagation();toggle(r.id);setRevealedRemoveRecipeId(null)}} aria-label={`Remove ${r.title} from ${weekOffset===0?"this week":"next week"}`} className={`grid size-11 place-items-center rounded-full ${palette.control} ${palette.controlHover} text-[#1e2822] shadow-sm backdrop-blur-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 sm:size-10`}><X size={20}/></button></div>
+      {image ? <img src={image} alt={r.title} className="h-44 w-full object-cover"/> : <div className={`grid h-36 place-items-center ${palette.surface} text-5xl`}>{r.emoji}</div>}
       <div className="min-w-0 p-5">
         <h3 className="truncate font-serif text-xl font-bold" title={r.title}>{r.title}</h3>
         <div className="mt-2"><RecipeTime time={r.time}/></div>
         <div className="mt-3 grid min-w-0 grid-cols-2 gap-2" onClick={event=>event.stopPropagation()}>
         <Select value={days[r.id]||"none"} onValueChange={value=>{const day=value==="none"?"":value;setDay(r.id,day);setCommittedDays(previous=>({...previous,[r.id]:day}))}}>
-          <SelectTrigger aria-label={`Day for ${r.title}`} className="h-11 w-full rounded-full border-0 bg-white text-sm font-semibold text-[#111613] shadow-none hover:bg-white focus-visible:border-[#111613] focus-visible:ring-[#111613]/20"><SelectValue placeholder="Add day"/></SelectTrigger>
-          <SelectContent position="popper" side="top" sideOffset={6} align="start" className={`max-h-none overflow-visible rounded-xl border-0 p-1 shadow-lg ${recipeCardPaletteFor(r.id).menu}`}><SelectItem value="none" className={recipeCardPaletteFor(r.id).menuFocus}>Add day</SelectItem>{["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map(day=><SelectItem key={day} value={day} className={recipeCardPaletteFor(r.id).menuFocus}>{day}</SelectItem>)}</SelectContent>
+          <SelectTrigger aria-label={`Day for ${r.title}`} className="h-11 w-full rounded-full border-0 bg-white text-sm font-semibold text-[#111613] shadow-none hover:bg-white focus-visible:border-[#111613] focus-visible:ring-[#111613]/20 [&_svg]:!text-[#111613] [&_svg]:!opacity-100"><SelectValue placeholder="Add day"/></SelectTrigger>
+          <SelectContent position="popper" side="top" sideOffset={6} align="start" style={paletteStyle} className={`z-50 max-h-none overflow-visible rounded-xl border-0 bg-white p-1 shadow-xl ring-1 ring-black/5`}><SelectItem value="none" className={palette.menuFocus}>Add day</SelectItem>{["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map(day=><SelectItem key={day} value={day} className={palette.menuFocus}>{day}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={chefs[r.id]||"none"} onValueChange={value=>setChef(r.id,value==="none"?"":value)}>
-          <SelectTrigger aria-label={`Chef cooking ${r.title}`} className="h-11 w-full rounded-full border-0 bg-white text-sm font-semibold text-[#111613] shadow-none hover:bg-white focus-visible:border-[#111613] focus-visible:ring-[#111613]/20"><SelectValue placeholder="Add chef name"/></SelectTrigger>
-          <SelectContent position="popper" side="top" sideOffset={6} align="end" className={`max-h-none overflow-visible rounded-xl border-0 p-1 shadow-lg ${recipeCardPaletteFor(r.id).menu}`}><SelectItem value="none" className={recipeCardPaletteFor(r.id).menuFocus}>Add chef name</SelectItem>{["Rory","Maria","Emma","Maya"].map(chef=><SelectItem key={chef} value={chef} className={recipeCardPaletteFor(r.id).menuFocus}>{chef}</SelectItem>)}</SelectContent>
+          <SelectTrigger aria-label={`Chef cooking ${r.title}`} className="h-11 w-full rounded-full border-0 bg-white text-sm font-semibold text-[#111613] shadow-none hover:bg-white focus-visible:border-[#111613] focus-visible:ring-[#111613]/20 [&_svg]:!text-[#111613] [&_svg]:!opacity-100"><SelectValue placeholder="Add chef name"/></SelectTrigger>
+          <SelectContent position="popper" side="top" sideOffset={6} align="end" style={paletteStyle} className="z-50 max-h-none overflow-visible rounded-xl border-0 bg-white p-1 shadow-xl ring-1 ring-black/5"><SelectItem value="none" className={palette.menuFocus}>Add chef name</SelectItem>{["Rory","Maria","Emma","Maya"].map(chef=><SelectItem key={chef} value={chef} className={palette.menuFocus}>{chef}</SelectItem>)}</SelectContent>
         </Select>
         </div>
-        <button type="button" role="checkbox" aria-checked={done.includes(r.id)} aria-label={done.includes(r.id)?`Reopen ${r.title}`:`Mark ${r.title} as made`} onClick={event=>{event.stopPropagation();toggleDinnerDone(r.id)}} className={`meal-done-control mt-3 -ml-2 flex min-h-11 w-[calc(100%+0.5rem)] items-center gap-3 rounded-full pl-2 text-left text-sm font-semibold text-[#151b17] transition-colors ${recipeCardPaletteFor(r.id).doneHover} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35`}><CheckboxIndicator checked={done.includes(r.id)} backgroundColor="#ffffff" checkedBackgroundColor={recipeCardPaletteFor(r.id).checkboxChecked} borderless/>{done.includes(r.id)?"Made":"Mark as made"}</button>
-      </div></article>)}</div>;
+        <button type="button" role="checkbox" aria-checked={done.includes(r.id)} aria-label={done.includes(r.id)?`Reopen ${r.title}`:`Mark ${r.title} as made`} onClick={event=>{event.stopPropagation();toggleDinnerDone(r.id)}} className={`meal-done-control mt-3 -ml-2 flex min-h-11 w-[calc(100%+0.5rem)] items-center gap-3 rounded-full pl-2 text-left text-sm font-semibold text-[#151b17] transition-colors ${palette.doneHover} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35`}><CheckboxIndicator checked={done.includes(r.id)} backgroundColor="#ffffff" checkedBackgroundColor={palette.checkboxChecked} borderless/>{done.includes(r.id)?"Made":"Mark as made"}</button>
+      </div>
+    </article>;
+  })}</div>;
 
   const fieldControlClass="min-h-12 rounded-xl border-[#d2e0c1] bg-white px-4 py-3 text-base text-[#151b17] shadow-none placeholder:text-[#707b76] focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15";
   const editFieldClass=`mt-2 ${fieldControlClass}`;
@@ -918,16 +1057,16 @@ export default function Home() {
           <h1 className="mt-2 font-sans text-4xl font-bold leading-tight sm:text-5xl">Add a recipe to the table</h1>
           <p className="mt-3 max-w-xl text-base leading-relaxed text-[#65716b]">{addMode==="url"?"Start with a recipe link, or enter a family favorite yourself.":addMode==="review"?"Check the imported details, then make any changes before saving.":"Tell us about the recipe using the roomy fields below."}</p>
         </div>
-        {addMode==="url"&&<section className="rounded-3xl border border-[#d5e0e3] bg-[#ffffff] p-5 shadow-[0_4px_20px_rgba(45,61,50,.05)] sm:p-8">
+        {addMode==="url"&&<section className="rounded-3xl border border-[#d6d6d6] bg-[#ffffff] p-5 shadow-[0_4px_20px_rgba(45,61,50,.05)] sm:p-8">
           <label className="block text-base font-bold text-[#111613]">Recipe link</label>
           <p className="mt-1 text-sm text-[#65716b]">We’ll try to bring in the title, ingredients, directions, and image.</p>
           <Input autoFocus value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://example.com/favorite-recipe" aria-label="Recipe URL" className={fieldClass}/>
           <Button type="button" className="mt-5 h-14 w-full rounded-xl bg-[#151b17] text-base font-bold text-white hover:bg-[#2d3b32]" disabled={!url.trim()||importing} onClick={importRecipe}>{importing?"Importing recipe…":"Import recipe"}</Button>
           {importError&&<p role="alert" className="mt-4 rounded-xl bg-[#fff0e8] p-4 text-sm leading-relaxed text-[#963f32]">{importError}</p>}
-          <div className="my-7 flex items-center gap-3"><span className="h-px flex-1 bg-[#d5e0e3]"/><span className="text-sm text-[#68736c]">or</span><span className="h-px flex-1 bg-[#d5e0e3]"/></div>
+          <div className="my-7 flex items-center gap-3"><span className="h-px flex-1 bg-[#d6d6d6]"/><span className="text-sm text-[#68736c]">or</span><span className="h-px flex-1 bg-[#d6d6d6]"/></div>
           <Button type="button" variant="outline" className="h-14 w-full rounded-xl border-[#cfdfa9] bg-white text-base font-bold text-[#151b17] hover:bg-[#eff8dd]" onClick={()=>setAddMode("manual")}>Enter recipe manually</Button>
         </section>}
-        {(addMode==="review"||addMode==="manual")&&<section className="space-y-6 rounded-3xl border border-[#d5e0e3] bg-[#ffffff] p-5 shadow-[0_4px_20px_rgba(45,61,50,.05)] sm:p-8">
+        {(addMode==="review"||addMode==="manual")&&<section className="space-y-6 rounded-3xl border border-[#d6d6d6] bg-[#ffffff] p-5 shadow-[0_4px_20px_rgba(45,61,50,.05)] sm:p-8">
           {imageUrl&&<img src={imageUrl} alt="Recipe preview" className="h-48 w-full rounded-2xl object-cover sm:h-64"/>}
           <div><label className="block text-base font-bold text-[#111613]">Recipe name <span className="font-normal text-[#963f32]">*</span></label><Input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Sunday tomato sauce" aria-required="true" className={fieldClass}/></div>
           <div><label className="block text-base font-bold text-[#111613]">Total time <span className="font-normal text-[#65716b]">(optional)</span></label><Input value={time} onChange={e=>setTime(e.target.value)} placeholder="e.g. 45 minutes" className={fieldClass}/></div>
@@ -947,25 +1086,25 @@ export default function Home() {
   return <main className="min-h-screen bg-white text-[#151b17]" style={{scrollbarGutter:'stable'}}>
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       {mockRecipePreview&&<p role="status" className="mb-4 rounded-xl border border-[#d2e0c1] bg-[#eff8dd] px-4 py-3 text-sm text-[#151b17]">Sample recipe preview. Changes are temporary and won&apos;t be saved.</p>}
-      {activeRecipe ? <article>
+      {activeRecipe ? <article style={recipePaletteStyle(activeRecipePalette)}>
         <div className="mb-5 flex items-center justify-between gap-2 pt-4 sm:pt-3">
           <BackButton onClick={()=>setActiveRecipe(null)} disabled={recipeIsEditing||savingRecipeEdits}/>
           <div className="flex shrink-0 items-center gap-2">
-            <Button onClick={()=>toggle(activeRecipe.id)} variant="outline" size="icon" className={`shrink-0 rounded-lg border border-[#d5e0e3] bg-white text-[#111613] ${activeRecipePalette.controlHoverLight} sm:h-9 sm:w-auto sm:px-4`} aria-label={selected.includes(activeRecipe.id)?`Added to ${weekStartLabel(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}>{selected.includes(activeRecipe.id)?<Check size={18}/>:<Plus size={18}/>}<span className="hidden sm:inline">{selected.includes(activeRecipe.id)?`Added to ${weekStartLabel(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}</span></Button>
+            <Button onClick={()=>toggle(activeRecipe.id)} variant="outline" size="icon" className="shrink-0 rounded-lg border border-[#d6d6d6] bg-white text-[#111613] transition-colors hover:border-[#d6f59a] hover:bg-[#d6f59a] sm:h-9 sm:w-auto sm:px-4" aria-label={selected.includes(activeRecipe.id)?`Added to ${weekStartLabel(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}>{selected.includes(activeRecipe.id)?<Check size={18}/>:<Plus size={18}/>}<span className="hidden sm:inline">{selected.includes(activeRecipe.id)?`Added to ${weekStartLabel(weekOffset)}`:`Add to ${weekRange(weekOffset)}`}</span></Button>
             {recipeIsEditing
               ? <>
                   <Button type="button" className="h-11 w-11 shrink-0 rounded-lg bg-[#111613] p-0 text-white hover:bg-[#2d3b32] sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Save recipe changes" disabled={savingRecipeEdits} onClick={saveRecipeEdits}><Save size={18}/><span className="sr-only sm:not-sr-only">{savingRecipeEdits?"Saving…":"Save"}</span></Button>
-                  <Button type="button" variant="outline" className="h-11 w-11 shrink-0 rounded-lg border border-[#d5e0e3] p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Cancel recipe changes" disabled={savingRecipeEdits} onClick={cancelRecipeEdit}><X size={18}/><span className="sr-only sm:not-sr-only">Cancel</span></Button>
+                  <Button type="button" variant="outline" className="h-11 w-11 shrink-0 rounded-lg border border-[#d6d6d6] p-0 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3" aria-label="Cancel recipe changes" disabled={savingRecipeEdits} onClick={cancelRecipeEdit}><X size={18}/><span className="sr-only sm:not-sr-only">Cancel</span></Button>
                 </>
-              : <Button variant="outline" size="icon" className={`shrink-0 rounded-lg border border-[#d5e0e3] bg-white text-[#111613] ${activeRecipePalette.controlHoverLight} sm:h-9 sm:w-auto sm:px-3`} onClick={()=>openEditRecipe(activeRecipe)} aria-label="Edit"><Pencil size={18}/><span className="hidden sm:inline">Edit</span></Button>}
-            <Button variant="outline" size="icon" className={`shrink-0 rounded-lg border border-[#d5e0e3] bg-white text-[#111613] ${activeRecipePalette.controlHoverLight} sm:h-9 sm:w-auto sm:px-3`} onClick={()=>setRecipeToDelete(activeRecipe)} aria-label="Delete recipe" disabled={recipeIsEditing||savingRecipeEdits}><Trash2 size={18}/></Button>
+              : <Button variant="outline" size="icon" className="shrink-0 rounded-lg border border-[#d6d6d6] bg-white text-[#111613] transition-colors hover:border-[#d6f59a] hover:bg-[#d6f59a] sm:h-9 sm:w-auto sm:px-3" onClick={()=>openEditRecipe(activeRecipe)} aria-label="Edit"><Pencil size={18}/><span className="hidden sm:inline">Edit</span></Button>}
+            <Button variant="outline" size="icon" className="shrink-0 rounded-lg border border-[#d6d6d6] bg-white text-[#111613] transition-colors hover:border-[#d6f59a] hover:bg-[#d6f59a] sm:h-9 sm:w-auto sm:px-3" onClick={()=>setRecipeToDelete(activeRecipe)} aria-label="Delete recipe" disabled={recipeIsEditing||savingRecipeEdits}><Trash2 size={18}/></Button>
           </div>
         </div>
         {recipeEditError&&<p role="alert" className="mb-5 rounded-xl bg-[#fff0e8] p-4 text-sm text-[#963f32]">{recipeEditError}</p>}
-        <div className="overflow-hidden rounded-[1.75rem] border border-[#dce5e8] bg-white">
-          {(activeRecipe.image || (activeRecipe.id==="roasted-veg-bowl"?"/veg-bowl.jpg": activeRecipe.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": activeRecipe.id==="beef-stew"?"/beef-stew.jpg":"")) ? <img src={activeRecipe.image || (activeRecipe.id==="roasted-veg-bowl"?"/veg-bowl.jpg": activeRecipe.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": activeRecipe.id==="beef-stew"?"/beef-stew.jpg":"")} alt={activeRecipe.title} className="h-64 w-full object-cover sm:h-80 lg:h-[28rem]"/> : <div className="grid h-56 place-items-center bg-[#eaf7d0] text-8xl">{activeRecipe.emoji}</div>}
+        <div className="rounded-[1.75rem] border border-[#d6d6d6] bg-white">
+          {(activeRecipe.image || (activeRecipe.id==="roasted-veg-bowl"?"/veg-bowl.jpg": activeRecipe.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": activeRecipe.id==="beef-stew"?"/beef-stew.jpg":"")) ? <img src={activeRecipe.image || (activeRecipe.id==="roasted-veg-bowl"?"/veg-bowl.jpg": activeRecipe.id==="lemon-herb-chicken"?"/lemon-chicken.jpg": activeRecipe.id==="beef-stew"?"/beef-stew.jpg":"")} alt={activeRecipe.title} className="h-64 w-full rounded-t-[1.75rem] object-cover sm:h-80 lg:h-[28rem]"/> : <div className="grid h-56 place-items-center rounded-t-[1.75rem] bg-[#eaf7d0] text-8xl">{activeRecipe.emoji}</div>}
           <div className="p-6 sm:p-9 lg:p-12">
-            <div className="border-b border-[#dce5e8] pb-8">
+            <div className="border-b border-[#d6d6d6] pb-8">
               {recipeEditDrafts.details
                 ? <section aria-label="Edit recipe details" className="space-y-4">
                     <h3 className="font-sans text-2xl font-bold">Recipe details</h3>
@@ -987,16 +1126,18 @@ export default function Home() {
                           <div className="mt-2"><RecipeTime time={activeRecipe.time}/></div>
                         </div>
                       </div>
-                      <div className={`flex max-w-md shrink-0 items-center justify-between gap-3 rounded-full ${activeRecipePalette.control} p-3 pl-6`}><span className="font-medium">Cooking for</span><div className="flex items-center gap-1"><Button size="icon" variant="ghost" className={`size-11 cursor-pointer rounded-full ${activeRecipePalette.controlHoverLight} sm:size-8`} onClick={()=>changeServings(activeRecipe.id,-1)}><Minus size={17} className="sm:hidden"/><Minus size={15} className="hidden sm:block"/></Button><strong className="min-w-20 text-center">{servings[activeRecipe.id]||4} people</strong><Button size="icon" variant="ghost" className={`size-11 cursor-pointer rounded-full ${activeRecipePalette.controlHoverLight} sm:size-8`} onClick={()=>changeServings(activeRecipe.id,1)}><Plus size={17} className="sm:hidden"/><Plus size={15} className="hidden sm:block"/></Button></div></div>
+                      <div className={`flex max-w-md shrink-0 items-center justify-between gap-3 rounded-full ${activeRecipePalette.control} p-3 pl-6`}><span className="font-medium">Cooking for</span><div className="flex items-center gap-1"><Button size="icon" variant="ghost" className={`size-11 cursor-pointer rounded-full ${activeRecipePalette.controlHover} sm:size-8`} onClick={()=>changeServings(activeRecipe.id,-1)}><Minus size={17} className="sm:hidden"/><Minus size={15} className="hidden sm:block"/></Button><strong className="min-w-20 text-center">{servings[activeRecipe.id]||4} people</strong><Button size="icon" variant="ghost" className={`size-11 cursor-pointer rounded-full ${activeRecipePalette.controlHover} sm:size-8`} onClick={()=>changeServings(activeRecipe.id,1)}><Plus size={17} className="sm:hidden"/><Plus size={15} className="hidden sm:block"/></Button></div></div>
                     </div>
                   </>}
             </div>
 
             <div className="mt-10">
-              <div className={`relative mb-6 grid grid-cols-2 rounded-full p-px ${activeRecipePalette.control}`} role="tablist" aria-label="Recipe details">
+              <div className="sticky top-0 z-30 -mx-6 bg-white/95 px-6 py-2 backdrop-blur sm:-mx-9 sm:px-9 lg:-mx-12 lg:px-12">
+              <div className={`relative grid grid-cols-2 rounded-full p-px ${activeRecipePalette.control}`} role="tablist" aria-label="Recipe details">
                 <span aria-hidden="true" className={`pivot-tab-indicator absolute inset-y-px left-px w-[calc(50%-1px)] rounded-full ${activeRecipePalette.tag} ${recipeTab==="directions"?"translate-x-full":"translate-x-0"}`}/>
-                <button type="button" id="recipe-ingredients-tab" role="tab" aria-controls="recipe-ingredients-panel" aria-selected={recipeTab==="ingredients"} onClick={()=>setRecipeTab("ingredients")} className="relative z-10 rounded-full px-4 py-3 text-sm font-bold text-[#151b17] transition-colors">Ingredients</button>
-                <button type="button" id="recipe-directions-tab" role="tab" aria-controls="recipe-directions-panel" aria-selected={recipeTab==="directions"} onClick={()=>setRecipeTab("directions")} className="relative z-10 rounded-full px-4 py-3 text-sm font-bold text-[#151b17] transition-colors">Directions</button>
+                <button type="button" id="recipe-ingredients-tab" role="tab" aria-controls="recipe-ingredients-panel" aria-selected={recipeTab==="ingredients"} onClick={()=>setRecipeTab("ingredients")} className={`relative z-10 rounded-full px-4 py-3 text-sm font-bold transition-colors ${recipeTab==="ingredients"?"text-[#151b17]":"text-[#707b76] hover:text-[#151b17]"}`}>Ingredients</button>
+                <button type="button" id="recipe-directions-tab" role="tab" aria-controls="recipe-directions-panel" aria-selected={recipeTab==="directions"} onClick={()=>setRecipeTab("directions")} className={`relative z-10 rounded-full px-4 py-3 text-sm font-bold transition-colors ${recipeTab==="directions"?"text-[#151b17]":"text-[#707b76] hover:text-[#151b17]"}`}>Directions</button>
+              </div>
               </div>
               {recipeTab==="ingredients"
                 ? <section id="recipe-ingredients-panel" role="tabpanel" aria-labelledby="recipe-ingredients-tab" tabIndex={0} className="recipe-tab-panel--ingredients min-w-0">
@@ -1011,8 +1152,8 @@ export default function Home() {
                                 .map((raw,itemIndex)=>({item:normalizeIngredient(raw),index:itemIndex}))
                                 .filter(({item,index:itemIndex})=>item&&(index===0?!((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex)):((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex))));
                               return <section key={heading} className="overflow-hidden">
-                                <button type="button" onClick={()=>setIngredientSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className={`flex w-full items-center justify-between rounded-full px-3 py-2 text-left transition-colors ${activeRecipePalette.controlHoverLight} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35`}>
-                                  <span className="flex items-center gap-2 font-sans text-2xl font-bold text-[#151b17]">{heading}<span className="text-sm font-sans font-medium text-[#707b76]">({items.length})</span></span>
+                                <button type="button" onClick={()=>setIngredientSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full cursor-pointer items-center justify-between rounded-full px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35">
+                                  <span className="flex items-center gap-2 font-sans text-2xl font-bold text-[var(--recipe-time)]">{heading}<span className="text-sm font-sans font-medium text-[#707b76]">({items.length})</span></span>
                                   <span className="grid size-8 place-items-center text-[#151b17]" aria-hidden="true">{isCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
                                 </button>
                                 {!isCollapsed&&<div className="space-y-1">
@@ -1022,11 +1163,11 @@ export default function Home() {
                                     const phrase=formatIngredientPhrase(item,amount);
                                     const done=(checkedIngredients[activeRecipe.id]||[]).includes(itemIndex);
                                     return <label key={itemIndex} className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-3xl px-3 py-3 text-xl leading-relaxed transition sm:text-base ${done?"text-[#707b76] line-through":`text-[#151b17] ${activeRecipePalette.controlHoverLight}`}`}>
-                                      <Checkbox className="size-6 shrink-0" checked={done} onCheckedChange={()=>toggleIngredientDone(activeRecipe.id,itemIndex)} style={{backgroundColor:done?activeRecipePalette.checkboxChecked:undefined,borderColor:activeRecipePalette.checkboxChecked}} aria-label={`${done?"Uncheck":"Check off"} ${phrase}`}/>
+                                      <Checkbox className="size-6 shrink-0" checked={done} onCheckedChange={()=>toggleIngredientDone(activeRecipe.id,itemIndex)} style={{backgroundColor:done?activeRecipePalette.checkboxChecked:"#ffffff",borderColor:done?activeRecipePalette.checkboxChecked:"#b5b5b5"}} aria-label={`${done?"Uncheck":"Check off"} ${phrase}`}/>
                                       <span className="min-w-0 flex-1">{phrase}</span>
                                     </label>;
                                   })}
-                                  {!items.length&&<p className="rounded-full border border-dashed border-[#d2dfe2] px-4 py-5 text-center text-sm text-[#6b7280]">{index===0?"Everything is marked used.":"Used ingredients will appear here."}</p>}
+                                  {!items.length&&<p className="rounded-full border border-dashed border-[#d6d6d6] px-4 py-5 text-center text-sm text-[#6b7280]">{index===0?"Everything is marked used.":"Used ingredients will appear here."}</p>}
                                 </div>}
                               </section>;
                             })}
@@ -1037,37 +1178,65 @@ export default function Home() {
                     <h3 className="font-sans text-2xl font-bold">Directions</h3>
                     {recipeEditDrafts.directions
                       ? <div className="mt-4">
-                          <div className="space-y-4">{recipeEditDrafts.directions.steps.map((step,index)=><div key={index} className="rounded-2xl border border-[#dce5e8] bg-[#f7fafb] p-4">
-                            <div className="flex items-start gap-3"><label className="min-w-0 flex-1 text-sm font-bold">Step {index+1}<Textarea value={step.text} onChange={event=>updateDirectionDraft(index,"text",event.target.value)} rows={3} className="mt-2 min-h-24 rounded-xl border-[#d2e0c1] bg-white px-4 py-3 text-base leading-relaxed text-[#151b17] shadow-none focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15"/></label><Button type="button" variant="outline" size="icon" className="mt-6 size-11 shrink-0 rounded-xl border-[#d5e0e3]" aria-label={`Remove step ${index+1}`} onClick={()=>removeDirectionDraftStep(index)}><X size={18}/></Button></div>
+                          <div className="space-y-4">{recipeEditDrafts.directions.steps.map((step,index)=><div key={index} className="rounded-2xl border border-[#d6d6d6] bg-[#f7fafb] p-4">
+                            <div className="flex items-start gap-3"><label className="min-w-0 flex-1 text-sm font-bold">Step {index+1}<Textarea value={step.text} onChange={event=>updateDirectionDraft(index,"text",event.target.value)} rows={3} className="mt-2 min-h-24 rounded-xl border-[#d2e0c1] bg-white px-4 py-3 text-base leading-relaxed text-[#151b17] shadow-none focus-visible:border-[#111613] focus-visible:ring-4 focus-visible:ring-[#111613]/15"/></label><Button type="button" variant="outline" size="icon" className="mt-6 size-11 shrink-0 rounded-xl border-[#d6d6d6]" aria-label={`Remove step ${index+1}`} onClick={()=>removeDirectionDraftStep(index)}><X size={18}/></Button></div>
                             <label className="mt-3 block text-sm font-bold">Step {index+1} image URL <span className="font-normal text-[#65716b]">(optional)</span><Input value={step.image} onChange={event=>updateDirectionDraft(index,"image",event.target.value)} placeholder="https://example.com/step-photo.jpg" className={editFieldClass}/></label>
                           </div>)}</div>
-                          <Button type="button" variant="outline" className="mt-4 min-h-11 rounded-xl border-[#d5e0e3] px-4" onClick={addDirectionDraftStep}><Plus size={18}/>Add step</Button>
+                          <Button type="button" variant="outline" className="mt-4 min-h-11 rounded-xl border-[#d6d6d6] px-4" onClick={addDirectionDraftStep}><Plus size={18}/>Add step</Button>
                         </div>
                       : activeRecipe.directions?.length?<>
-                          <ol className="mt-5 space-y-2">{activeRecipe.directions.map((step,index)=>{const done=completedSteps.includes(index);const text=directionText(step);const image=directionImage(step);return <li key={index}><button type="button" role="checkbox" aria-checked={done} aria-label={`Step ${index+1}: ${text}`} onClick={()=>toggleStepDone(index)} className={`flex w-full min-w-0 flex-wrap items-start gap-3 rounded-3xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 ${done?"border-[#d6f59a] bg-[#eaf7d0]":`border-[#d5e0e3] bg-[#ffffff] ${activeRecipePalette.controlHoverLight}`}`}><CheckboxIndicator checked={done} checkedBackgroundColor={activeRecipePalette.checkboxChecked} borderColor={activeRecipePalette.checkboxChecked} className="mt-1"/><span className="min-w-0 flex-1"><p className={`text-lg leading-relaxed sm:text-base ${done?"truncate text-[#68766f] line-through":"text-[#151b17]"}`}>{text}</p>{image&&!done&&<img src={image} alt="" className="mt-3 max-h-72 w-full rounded-xl object-cover"/>}</span></button></li>})}</ol>
-                          {completedSteps.length===activeRecipe.directions.length&&<div className="mt-6 rounded-2xl border border-[#d6f59a] bg-[#eaf7d0] p-5 text-center"><Check className="mx-auto mb-2 text-[#111613]"/><p className="font-semibold text-[#111613]">All steps done — enjoy!</p></div>}
+                          <ol className="mt-5 space-y-2">
+                            {activeRecipe.directions.map((step,index)=>{
+                              const done=completedSteps.includes(index);
+                              const text=directionText(step);
+                              const image=directionImage(step);
+                              const stepStyle: CSSProperties = done
+                                ? {backgroundColor:activeRecipePalette.controlColor,borderColor:activeRecipePalette.checkboxChecked}
+                                : {};
+                              return (
+                                <li key={index}>
+                                  <button
+                                    type="button"
+                                    role="checkbox"
+                                    aria-checked={done}
+                                    aria-label={`Step ${index+1}: ${text}`}
+                                    onClick={()=>toggleStepDone(index)}
+                                    style={stepStyle}
+                                    className={`flex w-full min-w-0 flex-wrap items-start gap-3 rounded-3xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 ${done ? "" : "border-[#d6d6d6] bg-white"} ${done ? "" : activeRecipePalette.controlHoverLight}`}
+                                  >
+                                    <CheckboxIndicator checked={done} checkedBackgroundColor={activeRecipePalette.checkboxChecked} borderColor={done?activeRecipePalette.checkboxChecked:"#b5b5b5"} className="mt-1"/>
+                                    <span className="min-w-0 flex-1">
+                                      <p className={`text-lg leading-relaxed sm:text-base ${done?"truncate text-[#68766f] line-through":"text-[#151b17]"}`}>{text}</p>
+                                      {image&&!done&&<img src={image} alt="" className="mt-3 max-h-72 w-full rounded-xl object-cover"/>}
+                                    </span>
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ol>
+                          {completedSteps.length===activeRecipe.directions.length&&<div className="mt-6 rounded-2xl border p-5 text-center" style={{borderColor:activeRecipePalette.checkboxChecked,backgroundColor:activeRecipePalette.controlColor}}><Check className="mx-auto mb-2 text-[#111613]"/><p className="font-semibold text-[#111613]">All steps done — enjoy!</p></div>}
                         </>:<p className="mt-4 rounded-xl bg-[#edf3f6] p-4 text-center text-sm text-[#6b7280]">Directions weren’t included with this saved recipe. Re-import it from its recipe page to add them.</p>}
                   </section>}
             </div>
           </div>
         </div>
       </article> : <><Tabs value={view} onValueChange={changeView}>
-      {view!=="recipes"&&<header className="relative -mx-4 -mt-6 mb-3 overflow-hidden rounded-none sm:mx-0 sm:mt-0 sm:rounded-[1.75rem]">
+      {view!=="recipes"&&<header ref={sharedHeaderRef} style={{top:`${stickyHeaderTop}px`}} className="sticky z-40 -mx-4 -mt-6 mb-3 overflow-hidden rounded-none sm:mx-0 sm:mt-0 sm:rounded-[1.75rem]">
         <div className="absolute inset-0" aria-hidden="true">{headerImages.map((src,i)=><img key={src+i} src={src} alt="" className={`absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000 ease-in-out ${i===headerImageIndex?"opacity-100":"opacity-0"}`}/>)}</div>
         <div className="absolute inset-0 bg-gradient-to-r from-[#111613]/70 via-[#111613]/55 to-[#111613]/35" aria-hidden="true"/>
         <div className="relative flex flex-col gap-4 px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
-          <div className="pr-24 sm:pr-0">
+          <div className="pr-36 sm:pr-40 lg:pr-0">
             <p className="text-xs font-bold uppercase tracking-[.2em] text-[#eaf7d0]"><span className="sm:hidden">Cameron</span><span className="hidden sm:inline">Cameron Family Table</span></p>
             <h2 className="mt-1 min-h-[5.625rem] font-serif text-2xl font-medium leading-tight transition-opacity duration-500 sm:min-h-[7.03125rem] sm:text-3xl lg:min-h-[8.4375rem] lg:text-4xl">{headerTagline}</h2>
           </div>
-          <Button type="button" onClick={()=>goAway("recipes")} className="absolute right-4 top-4 z-10 flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-full border-0 bg-[#d6f59a] p-0 text-sm font-bold text-[#111613] shadow-lg transition-colors hover:bg-[#c9ef78] sm:size-32 sm:gap-1.5"><BookOpen className="size-9 sm:hidden"/><BookOpen className="hidden size-11 sm:block"/><span>Recipes</span></Button>
+          <Button type="button" onClick={()=>goAway("recipes")} className="absolute right-4 top-4 z-10 flex size-28 shrink-0 flex-col items-center justify-center gap-1 rounded-full border-0 bg-[#d6f59a] p-0 text-sm font-normal text-[#111613] shadow-md transition-[transform,box-shadow,background-color] hover:-translate-y-1 hover:bg-[#c9ef78] hover:shadow-xl focus-visible:-translate-y-1 focus-visible:shadow-xl active:translate-y-0 sm:size-32 sm:gap-1.5"><BookOpen strokeWidth={1.5} className="size-9 sm:hidden"/><BookOpen strokeWidth={1.5} className="hidden size-11 sm:block"/><span>Recipes</span></Button>
         </div>
-        <div className="relative flex items-stretch gap-2 px-5 py-3 sm:px-8">
+        <div ref={sharedControlsRef} className="relative flex items-stretch gap-2 px-5 py-3 sm:px-8">
           <Select
             value={view==="history"?"history":String(weekOffset)}
             onValueChange={value=>{if(value==="history"){goAway("history")}else{setWeekOffset(Number(value) as 0|1);if(view==="history")setView(preRecipesView)}}}
           >
-            <SelectTrigger aria-label="Choose planning week" className="data-[size=default]:h-11 min-w-0 shrink rounded-full border-0 bg-[#111613] px-3 text-sm font-semibold text-white shadow-none hover:bg-[#2d3b32] [&_svg]:!text-white sm:shrink-0">
+            <SelectTrigger aria-label="Choose planning week" className="data-[size=default]:h-11 min-w-0 shrink rounded-full border-0 bg-[#d6f59a] px-3 text-sm font-normal text-[#111613] shadow-none hover:bg-[#c9ef78] [&_svg]:!text-[#111613] sm:shrink-0">
               {view==="history"
                 ? <HistoryIcon size={16} className="hidden shrink-0 text-white sm:block"/>
                 : <CalendarDays size={16} className="hidden shrink-0 text-white sm:block"/>}
@@ -1083,23 +1252,23 @@ export default function Home() {
             </SelectContent>
           </Select>
           <TabsList className="relative flex !h-11 flex-none items-stretch gap-0 overflow-hidden rounded-full border-0 bg-white/15 p-0 shadow-none backdrop-blur-sm">
-            {(view==="plan"||view==="shop")&&<span aria-hidden="true" className={`pivot-tab-indicator absolute inset-y-0 left-0 w-1/2 rounded-full bg-[#111613] ${view==="shop"?"translate-x-full":"translate-x-0"}`}/>}
-            {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="relative z-10 flex h-full flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-0 bg-transparent px-4 py-0 text-xs font-semibold text-white/80 shadow-none transition-colors hover:text-white data-[state=active]:bg-transparent data-[state=active]:text-white data-[state=active]:shadow-none sm:px-5 sm:text-sm"><Icon size={16} className="hidden shrink-0 sm:block"/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className="grid size-5 shrink-0 place-items-center rounded-full bg-white/20 text-[10px] font-bold leading-none text-white">{selected.length}</b>}</TabsTrigger>)}
+            {(view==="plan"||view==="shop")&&<span aria-hidden="true" className={`pivot-tab-indicator absolute inset-y-0 left-0 w-1/2 rounded-full bg-[#d6f59a] ${view==="shop"?"translate-x-full":"translate-x-0"}`}/>}
+            {nav.map(({value,label,icon:Icon})=><TabsTrigger key={value} value={value} className="group relative z-10 flex h-full min-w-[82px] flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-0 bg-transparent px-4 py-0 text-xs font-normal text-white/80 shadow-none transition-colors hover:text-white data-[state=active]:bg-transparent data-[state=active]:text-[#111613] data-[state=active]:shadow-none data-[state=active]:hover:text-[#111613] sm:min-w-[104px] sm:px-5 sm:text-sm"><Icon size={16} className="hidden shrink-0 sm:block"/><span>{label}</span>{value==="plan"&&selected.length>0&&<b className="grid size-5 shrink-0 place-items-center rounded-full bg-white/20 text-[10px] font-normal leading-none text-white group-data-[state=active]:bg-[#111613]/10 group-data-[state=active]:text-[#111613]">{selected.length}</b>}</TabsTrigger>)}
           </TabsList>
         </div>
       </header>}
         {view==="recipes"
-          ? <div className="mb-4 flex items-center justify-between gap-2 pb-2 pt-4 sm:pt-3">
+          ? <div className="sticky top-0 z-30 -mx-4 mb-4 flex items-center justify-between gap-2 bg-white/95 px-4 pb-2 pt-4 shadow-[0_8px_18px_-16px_rgba(17,22,19,.75)] backdrop-blur sm:-mx-6 sm:px-6 sm:pt-3">
               <BackButton onClick={()=>setView(preRecipesView)}/>
               <div className="flex items-center gap-2">
-                <Button onClick={()=>{resetAdd();setOpen(true)}} variant="outline" aria-label="Add a recipe" className="h-12 shrink-0 rounded-xl border-[#d5e0e3] bg-white px-4 text-sm font-semibold text-[#151b17] shadow-none transition-colors hover:border-[#d5e0e3] hover:bg-[#111613] hover:text-white sm:h-9"><Plus size={18}/>Add recipe</Button>
+                <Button onClick={()=>{resetAdd();setOpen(true)}} variant="outline" aria-label="Add a recipe" className="h-12 shrink-0 rounded-xl border-[#d6d6d6] bg-white px-4 text-sm font-semibold text-[#151b17] shadow-none transition-colors hover:border-[#d6d6d6] hover:bg-[#111613] hover:text-white sm:h-9"><Plus size={18}/>Add recipe</Button>
                 {searchOpen
                   ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
                       <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#38453e]" size={17}/>
-                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d5e0e3] bg-white pl-9 pr-9 shadow-none sm:h-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by name or cuisine" onBlur={()=>{if(!query)setSearchOpen(false)}}/>
+                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d6d6d6] bg-white pl-9 pr-9 shadow-none sm:h-9" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by name or cuisine" onBlur={()=>{if(!query)setSearchOpen(false)}}/>
                       <button type="button" aria-label="Close search" onClick={()=>{setQuery("");setSearchOpen(false)}} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-[#65716b] hover:bg-[#f0ede4]"><X size={16}/></button>
                     </div>
-                  : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d5e0e3] bg-white p-0 text-[#151b17] shadow-none transition-colors hover:border-[#d5e0e3] hover:bg-[#111613] hover:text-white sm:size-9"><Search size={18}/></Button>
+                  : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d6d6d6] bg-white p-0 text-[#151b17] shadow-none transition-colors hover:border-[#d6d6d6] hover:bg-[#111613] hover:text-white sm:size-9"><Search size={18}/></Button>
                 }
               </div>
             </div>
@@ -1119,21 +1288,23 @@ export default function Home() {
                 {planSearchOpen
                   ? <div className="relative flex min-w-0 flex-1 items-center sm:w-56 sm:flex-none">
                       <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#38453e]" size={17}/>
-                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d5e0e3] bg-white pl-9 pr-9 shadow-none sm:h-9" value={planQuery} onChange={e=>setPlanQuery(e.target.value)} placeholder="Search by name or cuisine" onBlur={()=>{if(!planQuery)setPlanSearchOpen(false)}}/>
+                      <Input autoFocus className="h-11 w-full rounded-lg border-[#d6d6d6] bg-white pl-9 pr-9 shadow-none sm:h-9" value={planQuery} onChange={e=>setPlanQuery(e.target.value)} placeholder="Search by name or cuisine" onBlur={()=>{if(!planQuery)setPlanSearchOpen(false)}}/>
                       <button type="button" aria-label="Close search" onClick={()=>{setPlanQuery("");setPlanSearchOpen(false)}} className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-[#65716b] hover:bg-[#f0ede4]"><X size={16}/></button>
                     </div>
-                  : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setPlanSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d5e0e3] bg-white p-0 text-[#151b17] shadow-none transition-colors hover:border-[#d5e0e3] hover:bg-[#111613] hover:text-white sm:size-9"><Search size={18}/></Button>
+                  : <Button type="button" variant="outline" aria-label="Search recipes" onClick={()=>setPlanSearchOpen(true)} className="size-11 shrink-0 rounded-lg border-[#d6d6d6] bg-white p-0 text-[#151b17] shadow-none transition-colors hover:border-[#d6d6d6] hover:bg-[#111613] hover:text-white sm:size-9"><Search size={18}/></Button>
                 }
               </div>
               {recipeGrid(recipes.filter(r=>recipeMatchesQuery(r,planQuery,"")))}
             </div>
-          : <div>{planErrors[activeWeekKey]&&<p role="alert" className="mb-4 rounded-xl bg-[#fff0e8] p-4 text-sm text-[#963f32]">Could not save this week&apos;s dinners: {planErrors[activeWeekKey]}</p>}{selected.length>0&&<><section aria-label="Dinners to make"><h2 className="mb-4 font-sans text-2xl font-bold text-[#111613]">To make <span className="font-sans text-base font-medium text-[#68766f]">({dinnersToMake.length})</span></h2>{dinnersToMake.length?planRecipeGrid(dinnersToMake):<p className="rounded-2xl border border-dashed border-[#d2dfe2] p-5 text-center text-sm text-[#6b7280]">All planned dinners are done.</p>}</section><Button type="button" variant="outline" onClick={()=>setPlanPicking(true)} className="mt-4 w-full rounded-2xl border-dashed border-[#d2e0c1] bg-transparent py-6 text-[#151b17] shadow-none hover:bg-[#edf3f6] hover:text-[#111613]"><Plus size={18}/>Add another recipe</Button>{dinnersDone.length>0&&<section aria-label="Done dinners" className="mt-9"><h2 className="mb-4"><button type="button" aria-expanded={!doneCollapsed} onClick={()=>setDoneCollapsed(v=>!v)} className="flex min-h-11 w-full items-center gap-2 rounded-lg text-left font-sans text-2xl font-bold text-[#111613] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ChevronDown size={22} className={`shrink-0 transition-transform ${doneCollapsed?"-rotate-90":""}`}/>Done <span className="font-sans text-base font-medium text-[#68766f]">({dinnersDone.length})</span></button></h2>{!doneCollapsed&&planRecipeGrid(dinnersDone)}</section>}</>}{selected.length===0&&<div role="button" tabIndex={0} onClick={()=>setPlanPicking(true)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPlanPicking(true)}}} className="cursor-pointer rounded-3xl border border-dashed border-[#d2dfe2] bg-transparent p-10 text-center transition hover:border-[#bbc6c7] hover:bg-[#f1f8e6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ChefHat className="mx-auto mb-3 text-[#6b7280]"/><p className="font-medium text-[#6b7280]">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div>}</TabsContent>
+          : <div>{planErrors[activeWeekKey]&&<p role="alert" className="mb-4 rounded-xl bg-[#fff0e8] p-4 text-sm text-[#963f32]">Could not save this week&apos;s dinners: {planErrors[activeWeekKey]}</p>}{selected.length>0&&<><section aria-label="Dinners to make"><h2 className="mb-4 font-sans text-2xl font-bold text-[#111613]">To make <span className="font-sans text-base font-medium text-[#68766f]">({dinnersToMake.length})</span></h2>{dinnersToMake.length?planRecipeGrid(dinnersToMake):<p className="rounded-2xl border border-dashed border-[#d6d6d6] p-5 text-center text-sm text-[#6b7280]">All planned dinners are done.</p>}</section><Button type="button" variant="outline" onClick={()=>setPlanPicking(true)} className="mt-4 w-full rounded-2xl border-dashed border-[#d2e0c1] bg-transparent py-6 text-[#151b17] shadow-none hover:bg-[#edf3f6] hover:text-[#111613]"><Plus size={18}/>Add another recipe</Button>{dinnersDone.length>0&&<section aria-label="Done dinners" className="mt-9"><h2 className="mb-4"><button type="button" aria-expanded={!doneCollapsed} onClick={()=>setDoneCollapsed(v=>!v)} className="flex min-h-11 w-full items-center gap-2 rounded-lg text-left font-sans text-2xl font-bold text-[#111613] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ChevronDown size={22} className={`shrink-0 transition-transform ${doneCollapsed?"-rotate-90":""}`}/>Done <span className="font-sans text-base font-medium text-[#68766f]">({dinnersDone.length})</span></button></h2>{!doneCollapsed&&planRecipeGrid(dinnersDone)}</section>}</>}{selected.length===0&&<div role="button" tabIndex={0} onClick={()=>setPlanPicking(true)} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPlanPicking(true)}}} className="cursor-pointer rounded-3xl border border-dashed border-[#d6d6d6] bg-transparent p-10 text-center transition hover:border-[#bdbdbd] hover:bg-[#f1f8e6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ChefHat className="mx-auto mb-3 text-[#6b7280]"/><p className="font-medium text-[#6b7280]">Choose recipes to plan {weekOffset===0?"this week":"next week"}.</p></div>}</div>}</TabsContent>
 
         <TabsContent value="shop">
-          <div className="relative mb-6 grid w-full grid-cols-2 rounded-full bg-[#edf3f6] p-px" role="tablist" aria-label="Shopping list source">
-            <span aria-hidden="true" className={`pivot-tab-indicator absolute inset-y-px left-px w-[calc(50%-1px)] rounded-full bg-[#111613] ${shopTab==="global"?"translate-x-full":"translate-x-0"}`}/>
-            <button type="button" role="tab" aria-selected={shopTab==="meals"} onClick={()=>setShopTab("meals")} className={`relative z-10 rounded-full px-4 py-3 text-sm font-bold transition-colors ${shopTab==="meals"?"text-white":"text-[#65716b] hover:text-[#111613]"}`}>From meals</button>
-            <button type="button" role="tab" aria-selected={shopTab==="global"} onClick={()=>setShopTab("global")} className={`relative z-10 rounded-full px-4 py-3 text-sm font-bold transition-colors ${shopTab==="global"?"text-white":"text-[#65716b] hover:text-[#111613]"}`}>Global</button>
+          <div className="sticky top-[69px] z-30 -mx-4 mb-6 bg-white/95 px-4 py-2 backdrop-blur">
+            <div className="relative grid w-full grid-cols-2 rounded-full bg-[#f2f2f2] p-px" role="tablist" aria-label="Shopping list source">
+              <span aria-hidden="true" className={`pivot-tab-indicator absolute inset-y-px left-px w-[calc(50%-1px)] rounded-full bg-[#111613] ${shopTab==="global"?"translate-x-full":"translate-x-0"}`}/>
+              <button type="button" role="tab" aria-selected={shopTab==="meals"} onClick={()=>setShopTab("meals")} className={`relative z-10 rounded-full px-4 py-3 text-sm font-bold transition-colors ${shopTab==="meals"?"text-white":"text-[#65716b] hover:text-[#111613]"}`}>From meals</button>
+              <button type="button" role="tab" aria-selected={shopTab==="global"} onClick={()=>setShopTab("global")} className={`relative z-10 rounded-full px-4 py-3 text-sm font-bold transition-colors ${shopTab==="global"?"text-white":"text-[#65716b] hover:text-[#111613]"}`}>Global</button>
+            </div>
           </div>
           {shopTab==="meals" ? (grocery.length?
             <div className="min-w-0">
@@ -1144,10 +1315,10 @@ export default function Home() {
                     {col.map(cat=>{
                       const items = grocery.filter(i=>i.category===cat);
                       return (
-                        <section key={cat} className="min-w-0 w-full overflow-hidden rounded-2xl border border-[#d5e0e3] bg-[#ffffff] shadow-[0_2px_10px_rgba(45,61,50,.04)]">
-                          <button type="button" onClick={()=>setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} className="flex w-full items-center justify-between rounded-t-2xl border-b border-[#dce5e8] bg-[#edf3f6] px-3 py-1.5 text-left hover:bg-[#e2eaed] sm:px-4 sm:py-3">
-                            <h3 className="font-sans text-sm font-bold uppercase tracking-wide text-[#151b17]">{cat}</h3>
-                            <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-md text-[#151b17] sm:size-8">{collapsed[cat]?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
+                        <section key={cat} className="min-w-0 w-full overflow-hidden rounded-2xl border border-[#d6d6d6] bg-[#ffffff] shadow-[0_2px_10px_rgba(45,61,50,.04)]">
+                          <button type="button" onClick={()=>setCollapsed(prev=>({...prev,[cat]:!prev[cat]}))} aria-expanded={!collapsed[cat]} aria-controls={`cat-${cat}`} className="flex w-full items-center justify-between rounded-t-2xl border-b border-[#d6d6d6] bg-[#f2f2f2] px-3 py-1 text-left hover:bg-[#e8e8e8] sm:px-4 sm:py-1">
+                            <h3 className="font-sans text-xs font-bold uppercase tracking-wide text-[#151b17]">{cat}</h3>
+                            <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-md text-[#151b17]">{collapsed[cat]?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</span>
                           </button>
                           <div id={`cat-${cat}`} className={collapsed[cat]?"hidden p-1 sm:p-2":"p-1 sm:p-2"}>
                             {items.map(i=>{const key=`${i.name.toLowerCase()}|${i.unit.toLowerCase()}|${i.category}`;const done=syncedChecked.includes(key);const phrase=formatIngredientPhrase(i);return (
@@ -1163,7 +1334,7 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-            </div> : <div role="button" tabIndex={0} onClick={()=>goAway("recipes")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();goAway("recipes")}}} className="cursor-pointer rounded-3xl border border-dashed border-[#d2dfe2] bg-transparent p-10 text-center transition hover:border-[#bbc6c7] hover:bg-[#f1f8e6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ShoppingBasket className="mx-auto mb-3 text-[#6b7280]"/><p className="font-medium text-[#6b7280]">Add meals to build your shopping list.</p></div>) : <div className="space-y-6">
+            </div> : <div role="button" tabIndex={0} onClick={()=>goAway("recipes")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();goAway("recipes")}}} className="cursor-pointer rounded-3xl border border-dashed border-[#d6d6d6] bg-transparent p-10 text-center transition hover:border-[#bdbdbd] hover:bg-[#f1f8e6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35"><ShoppingBasket className="mx-auto mb-3 text-[#6b7280]"/><p className="font-medium text-[#6b7280]">Add meals to build your shopping list.</p></div>) : <div className="space-y-6">
                 {globalItemEntryOpen
                   ? <div className="relative">
                       <Input autoFocus disabled={savingGlobalItem} value={globalItemText} onChange={event=>setGlobalItemText(event.target.value)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();addGlobalItem()}else if(event.key==="Escape"){setGlobalItemText("");setGlobalItemError("");setGlobalItemEntryOpen(false)}}} placeholder="Add a task or item" aria-label="Global shopping task" className={`${fieldControlClass} pr-24`}/>
@@ -1176,18 +1347,18 @@ export default function Home() {
                   const sectionKey=index===0?"toGet":"completed";
                 const items=globalItems.filter(item=>index===0?!item.checked:item.checked);
                   const isCollapsed=globalSectionsCollapsed[sectionKey];
-                  return <section key={heading} className="min-w-0 w-full overflow-hidden rounded-2xl border border-[#d5e0e3] bg-[#ffffff] shadow-[0_2px_10px_rgba(45,61,50,.04)]">
-                    <button type="button" onClick={()=>setGlobalSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full items-center justify-between rounded-t-2xl border-b border-[#dce5e8] bg-[#edf3f6] px-3 py-1.5 text-left hover:bg-[#e2eaed] sm:px-4 sm:py-3">
-                      <h3 className="font-sans text-sm font-bold uppercase tracking-wide text-[#151b17]">{heading} <span className="font-medium text-[#65716b]">({items.length})</span></h3>
-                      <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-md text-[#151b17] sm:size-8">{isCollapsed?<ChevronDown size={18}/>:<ChevronUp size={18}/>}</span>
+                  return <section key={heading} className="min-w-0 w-full overflow-hidden rounded-2xl border border-[#d6d6d6] bg-[#ffffff] shadow-[0_2px_10px_rgba(45,61,50,.04)]">
+                    <button type="button" onClick={()=>setGlobalSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full items-center justify-between rounded-t-2xl border-b border-[#d6d6d6] bg-[#f2f2f2] px-3 py-1 text-left hover:bg-[#e8e8e8] sm:px-4 sm:py-1">
+                      <h3 className="font-sans text-xs font-bold uppercase tracking-wide text-[#151b17]">{heading} <span className="font-medium text-[#65716b]">({items.length})</span></h3>
+                      <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-md text-[#151b17]">{isCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</span>
                     </button>
-                    {!isCollapsed&&<div className="p-1 sm:p-2">{items.map(item=><div key={item.id} className={`flex min-w-0 items-start gap-2 rounded-xl px-1 py-1.5 sm:gap-3.5 sm:px-2 sm:py-3 ${item.checked?"":"hover:bg-[#f4f9ea]"}`}><Checkbox className="mt-1 size-6 shrink-0" checked={item.checked} onCheckedChange={()=>toggleGlobalItem(item)} aria-label={`${item.checked?"Uncheck":"Complete"} ${item.ingredient_name}`}/><span className={`min-w-0 flex-1 text-base leading-normal sm:leading-relaxed ${item.checked?"text-[#707b76] line-through":"text-[#151b17]"}`}>{globalItemPhrase(item)}</span><button type="button" onClick={()=>removeGlobalItem(item)} aria-label={`Remove ${item.ingredient_name}`} className="grid size-9 shrink-0 place-items-center rounded-full text-[#68766f] hover:bg-[#fff0e8] hover:text-[#963f32]"><X size={16}/></button></div>)}{!items.length&&<p className="rounded-2xl border border-dashed border-[#d2dfe2] p-5 text-center text-sm text-[#6b7280]">{index===0?"Everything is checked off.":"Completed items will appear here."}</p>}</div>}
+                    {!isCollapsed&&<div className="p-1 sm:p-2">{items.map(item=><div key={item.id} className={`flex min-w-0 items-start gap-2 rounded-xl px-1 py-1.5 sm:gap-3.5 sm:px-2 sm:py-3 ${item.checked?"":"hover:bg-[#f4f9ea]"}`}><Checkbox className="mt-1 size-6 shrink-0" checked={item.checked} onCheckedChange={()=>toggleGlobalItem(item)} aria-label={`${item.checked?"Uncheck":"Complete"} ${item.ingredient_name}`}/><span className={`min-w-0 flex-1 text-base leading-normal sm:leading-relaxed ${item.checked?"text-[#707b76] line-through":"text-[#151b17]"}`}>{globalItemPhrase(item)}</span><button type="button" onClick={()=>removeGlobalItem(item)} aria-label={`Remove ${item.ingredient_name}`} className="grid size-9 shrink-0 place-items-center rounded-full text-[#68766f] hover:bg-[#fff0e8] hover:text-[#963f32]"><X size={16}/></button></div>)}{!items.length&&<p className="rounded-2xl border border-dashed border-[#d6d6d6] p-5 text-center text-sm text-[#6b7280]">{index===0?"Everything is checked off.":"Completed items will appear here."}</p>}</div>}
                   </section>
                 })}
               </div>}
           </TabsContent>
 
-        <TabsContent value="history"><div className="space-y-4">{history.map(week=><article key={week.id} className="rounded-2xl border border-[#d5e0e3] bg-[#ffffff] p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-[#687c36]">Meal plan</p><h3 className="font-sans text-xl font-bold">{week.label}</h3></div><span className="text-xs text-[#68736c]">Saved {new Date(week.savedAt).toLocaleDateString()}</span></div><div className="grid gap-2 sm:grid-cols-2">{week.meals.map(meal=><div key={meal.id} className="flex items-center gap-3 rounded-xl bg-[#edf3f6] p-3"><span className="text-2xl">{meal.emoji}</span><div className="min-w-0"><p className="truncate font-medium">{meal.title}</p><p className="text-xs text-[#65716b]">{meal.day?`${meal.day} · `:""}For {meal.people} people{meal.chef?` · Chef ${meal.chef}`:""}</p></div></div>)}</div></article>)}{!history.length&&<div className="rounded-3xl border border-dashed border-[#d2dfe2] bg-transparent p-10 text-center"><HistoryIcon className="mx-auto mb-3 text-[#6b7280]"/><p className="font-medium text-[#6b7280]">No completed weeks yet.</p><p className="mt-1 text-sm text-[#6b7280]">A week will appear here automatically after it ends.</p></div>}</div></TabsContent>
+        <TabsContent value="history"><div className="space-y-4">{history.map(week=><article key={week.id} className="rounded-2xl border border-[#d6d6d6] bg-[#ffffff] p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wider text-[#687c36]">Meal plan</p><h3 className="font-sans text-xl font-bold">{week.label}</h3></div><span className="text-xs text-[#68736c]">Saved {new Date(week.savedAt).toLocaleDateString()}</span></div><div className="grid gap-2 sm:grid-cols-2">{week.meals.map(meal=><div key={meal.id} className="flex items-center gap-3 rounded-xl bg-[#edf3f6] p-3"><span className="text-2xl">{meal.emoji}</span><div className="min-w-0"><p className="truncate font-medium">{meal.title}</p><p className="text-xs text-[#65716b]">{meal.day?`${meal.day} · `:""}For {meal.people} people{meal.chef?` · Chef ${meal.chef}`:""}</p></div></div>)}</div></article>)}{!history.length&&<div className="rounded-3xl border border-dashed border-[#d6d6d6] bg-transparent p-10 text-center"><HistoryIcon className="mx-auto mb-3 text-[#6b7280]"/><p className="font-medium text-[#6b7280]">No completed weeks yet.</p><p className="mt-1 text-sm text-[#6b7280]">A week will appear here automatically after it ends.</p></div>}</div></TabsContent>
       </Tabs>
       </>}
     </div>
