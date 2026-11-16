@@ -903,7 +903,7 @@ export default function Home() {
       <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6 sm:py-10">
         <div className="mb-8 flex items-center justify-between gap-4">
           <Button type="button" onClick={()=>{setOpen(false);resetAdd()}} className="h-12 rounded-xl border-0 bg-[#111613] px-4 text-white hover:bg-[#2d3b32] hover:text-white"><ArrowLeft size={18}/>Back</Button>
-          <span className="text-right text-xs font-bold uppercase tracking-[.16em] text-[#68766f]">Cameron Family Table</span>
+          <span className="text-right text-xs font-bold uppercase tracking-[.16em] text-[#68766f]"><span className="sm:hidden">Cameron</span><span className="hidden sm:inline">Cameron Family Table</span></span>
         </div>
         <div className="mb-8">
           <p className="text-sm font-bold uppercase tracking-[.18em] text-[#111613]">New recipe</p>
@@ -1044,7 +1044,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-r from-[#111613]/70 via-[#111613]/55 to-[#111613]/35" aria-hidden="true"/>
         <div className="relative flex flex-col gap-4 px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
           <div className="pr-24 sm:pr-0">
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#eaf7d0]">Cameron Family Table</p>
+            <p className="text-xs font-bold uppercase tracking-[.2em] text-[#eaf7d0]"><span className="sm:hidden">Cameron</span><span className="hidden sm:inline">Cameron Family Table</span></p>
             <h2 className="mt-1 min-h-[5.625rem] font-serif text-2xl font-medium leading-tight transition-opacity duration-500 sm:min-h-[7.03125rem] sm:text-3xl lg:min-h-[8.4375rem] lg:text-4xl">{headerTagline}</h2>
           </div>
           <Button type="button" onClick={()=>goAway("recipes")} className="absolute right-4 top-4 z-10 flex size-24 shrink-0 flex-col items-center justify-center gap-1 rounded-full border-0 bg-[#d6f59a] p-0 text-sm font-bold text-[#111613] shadow-lg transition-colors hover:bg-[#c9ef78] sm:size-32 sm:gap-1.5"><BookOpen className="size-9 sm:hidden"/><BookOpen className="hidden size-11 sm:block"/><span>Recipes</span></Button>
