@@ -11,12 +11,14 @@ function CheckboxIndicator({
   className,
   backgroundColor,
   checkedBackgroundColor,
+  borderColor,
   borderless = false,
 }: {
   checked: boolean
   className?: string
   backgroundColor?: string
   checkedBackgroundColor?: string
+  borderColor?: string
   borderless?: boolean
 }) {
   return (
@@ -25,6 +27,7 @@ function CheckboxIndicator({
       data-checked={checked}
       style={{
         backgroundColor: checked ? checkedBackgroundColor : backgroundColor,
+        borderColor,
         ...(borderless ? { border: "none" } : {}),
       }}
       className={cn(
