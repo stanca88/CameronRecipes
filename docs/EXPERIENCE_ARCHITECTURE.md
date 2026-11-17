@@ -109,9 +109,9 @@ flowchart TD
   on recipe-content controls, ingredient rows, and direction steps use the
   active recipe's light theme color. The Ingredients/Directions pivot uses the
   active recipe's lighter control color for its track and darker theme color
-  for the selected pill. Both labels are bold; the unselected label is gray at
-  rest and darkens on hover. Recipe ingredient and direction checkboxes use a
-  neutral-gray (`#b5b5b5`) outline while unchecked and a solid active-recipe
+  for the selected pill. Both labels are bold; the unselected label uses the
+  recipe theme color at rest and turns black on hover. Recipe ingredient and
+  direction checkboxes use a neutral-gray (`#b5b5b5`) outline while unchecked and a solid active-recipe
   theme fill when checked. A completed direction step uses the active recipe's
   light control color for its background and its theme color for its border.
 - Selecting a recipe opens its detail view. Planned recipe cards use the same
@@ -137,9 +137,9 @@ Switching tabs slides the selected content horizontally. Disable this
 transition when reduced motion is requested.
 
 The toolbar is the stable home for recipe actions. Do not move Edit to the
-title, image, page footer, or a separate menu. On mobile, controls may use
-compact icon treatments, but their meaning, order, and toolbar location remain
-the same.
+title, image, page footer, or a separate menu. Use regular-weight text for its
+visible labels. On mobile, controls may use compact icon treatments, but their
+meaning, order, and toolbar location remain the same.
 
 When the recipe is already planned, the **Add to week** action shows the
 week's start date in its confirmation label, such as **Added to Nov 15th
@@ -173,8 +173,8 @@ matching border (`#d6f59a`), rather than the active recipe's derived palette.
   use fully rounded pill shapes.
 - The Ingredients/Directions selected pill glides in both directions and
   respects reduced-motion preferences; the content panels slide horizontally.
-  Both labels remain bold. The unselected label is gray at rest and darkens on
-  hover, without changing the pivot background.
+  Both labels remain bold. The unselected label uses the recipe theme color at
+  rest and turns black on hover, without changing the pivot background.
 - The **Cooking for** servings control uses the same fully rounded treatment.
 - The empty `Used` ingredients message remains light and uses fully rounded
   corners.
@@ -218,14 +218,16 @@ matching border (`#d6f59a`), rather than the active recipe's derived palette.
 - Each meal card keeps its day and cook selectors above a green **Mark as
   made** pill action at the bottom. Use white selector surfaces with dark text
   regardless of card color, keep the day and cook placeholders the same color,
-  and align the checkbox with the card content.
+  use regular-weight text in all three controls, and align the checkbox with
+  the card content.
 - After marking a meal done, label the reversible action **Made** without
   adding explanatory copy to its visible label.
 - Each meal card retains its servings and completion behavior.
 - **Add another recipe** opens recipe picking within the plan flow. Choosing
   a recipe should not change the location of the week selector or primary
-  navigation. Its hover fill is neutral gray, matching Global's **Add a task**
-  action.
+  navigation. Use regular-weight text for its label; its hover fill and border
+  use the app's lime (`#d6f59a`);
+  Global's **Add a task** action keeps its neutral-gray hover fill.
 - The empty plan invites the user to choose recipes without adding a new
   navigation path.
 
@@ -295,8 +297,8 @@ matching border (`#d6f59a`), rather than the active recipe's derived palette.
   hierarchy or move them to unrelated areas.
 - Keep the recipe detail Ingredients/Directions pivot sticky while scrolling,
   without changing the recipe image or its position below the existing toolbar.
-- Center empty-state messages and use a lighter gray font color throughout the
-  app while preserving interactive empty-state actions.
+- Center empty-state messages and use regular-weight text with a lighter gray
+  font color throughout the app while preserving interactive empty-state actions.
 
 ## Persistence and state boundaries
 
