@@ -137,9 +137,10 @@ Switching tabs slides the selected content horizontally. Disable this
 transition when reduced motion is requested.
 
 The toolbar is the stable home for recipe actions. Do not move Edit to the
-title, image, page footer, or a separate menu. Use regular-weight text for its
-visible labels. On mobile, controls may use compact icon treatments, but their
-meaning, order, and toolbar location remain the same.
+title, image, page footer, or a separate menu. The Back, Add to week, and Edit
+labels use regular-weight text; Save and Cancel retain their button styling.
+On mobile, controls may use compact icon treatments, but their meaning, order,
+and toolbar location remain the same.
 
 When the recipe is already planned, the **Add to week** action shows the
 week's start date in its confirmation label, such as **Added to Nov 15th
@@ -215,7 +216,7 @@ matching border (`#d6f59a`), rather than the active recipe's derived palette.
   current positions over the hero.
 - Planned meals are grouped under **To make** and **Done**. Completion moves a
   meal between these groups without removing it from the week's plan.
-- Each meal card keeps its day and cook selectors above a green **Mark as
+- Each meal card keeps its day and cook selectors above a **Mark as
   made** pill action at the bottom. Use white selector surfaces with dark text
   regardless of card color, keep the day and cook placeholders the same color,
   use regular-weight text in all three controls, and align the checkbox with
@@ -242,7 +243,7 @@ matching border (`#d6f59a`), rather than the active recipe's derived palette.
   selected pill. Hovering an inactive tab changes only its text. Neither the
   sticky shopping pivot nor the recipe-detail Ingredients/Directions pivot has
   a hover fill or drop shadow. In the recipe-detail pivot, hover changes only
-  the inactive label's text color from gray to ink-dark.
+  the inactive label's text color from the recipe theme color to black.
 - **From meals** displays generated ingredients grouped by grocery category.
   Category cards keep rounded neutral-gray headers (`#f2f2f2`) with a neutral
   hover fill (`#e8e8e8`), 33px header rows, 12px uppercase titles, shared-size
@@ -306,9 +307,12 @@ matching border (`#d6f59a`), rather than the active recipe's derived palette.
   history are persisted through the existing Supabase-backed APIs.
 - Browser-local state is a cache or device-specific state, not the authoritative
   copy of shared data.
-- The local `?mockRecipes=1` preview is temporary and explicitly indicates
-  that edits are not saved. Do not let mock preview behavior leak into normal
-  production flows.
+- The local `?mockRecipes=1` preview loads sample recipes and a sample plan.
+  Plan changes and edits to existing sample recipes are not persisted. It is
+  not a fully isolated sandbox: adding or deleting recipes, managing Global
+  shopping tasks, and refreshing recipe images can still call configured
+  shared APIs. Do not let mock preview behavior leak into normal production
+  flows.
 - Preserve refresh, synchronization, selected-week, and supported URL state
   when changing view components.
 
