@@ -105,6 +105,16 @@ npm run dev
 
 Open the local address printed by the development server.
 
+### Sample recipe preview
+
+Append `?mockRecipes=1` to the local address to display sample recipes and a
+sample weekly plan. This mode is recognized only on `localhost` or `127.0.0.1`;
+sample plan changes and edits to sample recipes are not persisted.
+
+**The preview is not a fully isolated sandbox.** Adding or deleting recipes,
+managing Global shopping tasks, and refreshing recipe images can still call the
+configured shared APIs. Avoid those actions when connected to production data.
+
 ### Production build
 
 ```bash

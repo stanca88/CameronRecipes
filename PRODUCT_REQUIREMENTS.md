@@ -185,7 +185,7 @@ The product must support separate plans for this week and next week.
 - Let users mark a planned dinner done and move it from `To make` to `Done`
   for that week, with a way to move it back. Keep completed dinners in the
   weekly plan and shopping-list calculations until they are removed.
-- On each planned meal card, place the day and cook selectors above a green
+- On each planned meal card, place the day and cook selectors above a
   `Mark as made` action at the bottom. Keep the day and cook placeholder text
   the same color. Give both selectors white pill surfaces with dark text,
   regardless of the recipe card's palette, and use regular-weight text in all
@@ -365,9 +365,9 @@ Empty states must explain the next useful action without excessive decoration.
   recipe details use their recipe-derived palette. The recipe-detail toolbar's
   **Add to week**, **Edit**, and **Delete** actions keep their white resting
   surfaces and use the app's lime (`#d6f59a`) for both the background and border
-  on hover; visible toolbar labels use regular-weight text. The shared-header
-  week selector and Back
-  action keep their lime surface and deeper-lime hover treatment. Plan/Shop
+  on hover; the Back, Add to week, and Edit labels use regular-weight text.
+  The shared-header week selector and Back action keep their lime surface and
+  deeper-lime hover treatment. Plan/Shop
   uses a lime selected pill and two equal-width tabs that do not overlap. On an
   inactive tab, hover changes only its label and icon to white, not its
   background; selected text stays ink-dark. The Plan meal-count badge uses a
@@ -538,7 +538,10 @@ cache once and then removes itself from the URL.
   shared family application.
 - Local development without Supabase environment values cannot display or
   modify the production recipe collection. Use `?mockRecipes=1` on localhost
-  to preview sample recipes and a sample weekly plan without saving them.
+  to preview sample recipes and a sample weekly plan. Sample plan changes and
+  edits to existing sample recipes are not saved. The current preview is not
+  fully isolated: adding or deleting recipes, managing Global shopping tasks,
+  and refreshing recipe images can still call configured shared APIs.
 - Ingredient parsing is intentionally practical rather than a complete
   culinary-language parser.
 
