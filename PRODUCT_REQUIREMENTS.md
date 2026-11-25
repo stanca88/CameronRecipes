@@ -225,7 +225,10 @@ The recipe detail view must be usable while cooking.
 - Present direction steps as compact checkable rows.
 - Let users tap a direction step to mark it complete or incomplete.
 - Give each step a listen button that reads "Step N" and the step text aloud
-  with the browser's built-in speech. Tapping it again stops reading, and
+  in a natural human-sounding voice from the server-side `/api/speech` route
+  (OpenAI text-to-speech, configured with the `OPENAI_API_KEY` environment
+  variable). If that voice is not configured or fails, fall back to the
+  browser's built-in speech. Tapping it again stops reading, and
   starting another step or leaving the recipe stops the current one. Hide the
   button where speech is unavailable. Listening never checks the step off.
 - Keep ingredient and direction checkmarks for each recipe and selected week
