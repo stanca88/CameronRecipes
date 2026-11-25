@@ -356,6 +356,37 @@ function extractMicrodataRecipe(html: string) {
   return { title, ingredients, image, directions, sourceName, time };
 }
 
+function extractSmittenKitchenRecipe(html: string) {
+  const articleMatch = /<div\b[^>]*class=["'][^"']*\bentry-content\b[^"']*["'][^>]*>/i.exec(html);
+  if (!articleMatch) return null;
+  const article = extractBalancedTag(html, "div", articleMatch.index);
+  const introMatch = /<div\b[^>]*class=["'][^"']*\bsmittenkitchen-print-hide\b[^"']*["'][^>]*>/i.exec(article);
+  if (!introMatch) return null;
+  const intro = extractBalancedTag(article, "div", introMatch.index);
+  const afterIntro = article.slice(introMatch.index + intro.length);
+  const sharingStart = afterIntro.search(/<div\b[^>]*class=["'][^"']*\bsharedaddy\b/i);
+  if (sharingStart < 0) return null;
+
+  const paragraphs = [...afterIntro.slice(0, sharingStart).matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
+    .map(match => match[1]);
+  const titleMatch = /^\s*<(?:b|strong)\b[^>]*>([\s\S]*?)<\/(?:b|strong)>\s*$/i.exec(paragraphs[0] || "");
+  const title = titleMatch ? stripTags(titleMatch[1]) : "";
+  const ingredientsIndex = paragraphs.findIndex(paragraph => (paragraph.match(/<br\s*\/?>/gi) || []).length >= 2);
+  if (!title || ingredientsIndex < 1) return null;
+  const ingredients = paragraphs[ingredientsIndex].split(/<br\s*\/?>/i).map(stripTags).filter(Boolean);
+  const directions = paragraphs.slice(ingredientsIndex + 1).map(stripTags).filter(Boolean);
+  if (ingredients.length < 3 || !directions.length) return null;
+
+  return {
+    title,
+    ingredients,
+    directions,
+    image: metaContent(html, "og:image"),
+    sourceName: metaContent(html, "og:site_name") || "Smitten Kitchen",
+    time: "",
+  };
+}
+
 function tagTextValues(block: string, tagName: string): string[] {
   const pattern = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)</${tagName}>`, "gi");
   return [...block.matchAll(pattern)]
@@ -445,6 +476,10 @@ export async function POST(request: Request) {
       if (/marthastewart\.com$/i.test(url.hostname)) {
         const marthaStewart = extractMarthaStewartRecipe(html);
         if (marthaStewart) return Response.json(marthaStewart);
+      }
+      if (/^(?:www\.)?smittenkitchen\.com$/i.test(url.hostname)) {
+        const smittenKitchen = extractSmittenKitchenRecipe(html);
+        if (smittenKitchen) return Response.json(smittenKitchen);
       }
       const readableFallback = extractRecipeFromReadableText(html, url.hostname);
       if (readableFallback) return Response.json(readableFallback);

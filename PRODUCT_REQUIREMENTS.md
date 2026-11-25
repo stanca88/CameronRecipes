@@ -532,6 +532,9 @@ cache once and then removes itself from the URL.
 
 - Recipe URL import depends on third-party page structure and access rules, so
   not every URL can be imported.
+- For older Smitten Kitchen pages without structured recipe metadata, the
+  importer also recognizes the site's printable article layout. The extracted
+  recipe remains editable in the normal import review.
 - Synchronization currently uses periodic polling rather than push-based
   realtime subscriptions.
 - The current product has no sign-in or per-user account experience; it is a

@@ -201,6 +201,9 @@ matching border (`#d6f59a`), rather than the active recipe's derived palette.
   Its inferred cuisine tag is prefilled and editable. Manual entry uses the
   same recipe fields, including optional total time, and infers the cuisine tag
   at save when left blank.
+- When structured recipe metadata is absent, the importer recognizes the
+  printable article layout used by some older Smitten Kitchen pages. Review
+  the extracted title, ingredients, directions, and image before saving.
 - Import structured `totalTime` when available; otherwise combine `prepTime`
   and `cookTime` only when both are available.
 - The Save action remains after the editable content. Errors are shown with the
