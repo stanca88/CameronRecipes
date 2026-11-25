@@ -190,6 +190,10 @@ matching border (`#d6f59a`), rather than the active recipe's derived palette.
 - Directions remain ordered, checkable steps with any associated step image.
   Keep direction controls slightly inset within their rounded hover surfaces;
   completion feedback stays with the directions experience.
+- Keep ingredient and direction checkmarks separate for each recipe and
+  selected week while navigating between recipes or reloading on the same
+  device. Saving recipe edits clears that recipe's checkmarks. Cooking
+  checkmarks are device-local rather than shared.
 - Preserve the servings control's position below the title on mobile; it must
   not overlap or push recipe actions into a different region.
 
