@@ -828,10 +828,43 @@ export default function Home() {
   const changeServings=(id:string,delta:number)=>setServings(v=>({...v,[id]:Math.max(1,(v[id]||4)+delta)}));
   const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setRecipeEditDrafts({});setRecipeEditError("");setRecipeTab("ingredients");window.scrollTo({top:0,behavior:"smooth"})};
   const [speechAvailable,setSpeechAvailable]=useState(false);
-  useEffect(()=>{setSpeechAvailable("speechSynthesis" in window)},[]);
+  useEffect(()=>{setSpeechAvailable("speechSynthesis" in window||typeof Audio!=="undefined")},[]);
   const [speakingStep,setSpeakingStep]=useState<number|null>(null);
-  useEffect(()=>()=>{if(typeof window!=="undefined"&&"speechSynthesis" in window)window.speechSynthesis.cancel()},[activeRecipe?.id]);
-  const speakStep=(index:number,text:string)=>{if(typeof window==="undefined"||!("speechSynthesis" in window))return;const synth=window.speechSynthesis;const wasSpeaking=speakingStep===index;synth.cancel();if(wasSpeaking){setSpeakingStep(null);return}const utterance=new SpeechSynthesisUtterance(`Step ${index+1}. ${text}`);utterance.onend=()=>setSpeakingStep(current=>current===index?null:current);utterance.onerror=()=>setSpeakingStep(current=>current===index?null:current);setSpeakingStep(index);synth.speak(utterance)};
+  const stepAudioRef=useRef<HTMLAudioElement|null>(null);
+  const stepVoiceCacheRef=useRef<Map<string,string>>(new Map());
+  const speakRequestRef=useRef(0);
+  const stopSpeaking=()=>{speakRequestRef.current+=1;const audio=stepAudioRef.current;if(audio){audio.pause();audio.removeAttribute("src");audio.load()}if("speechSynthesis" in window)window.speechSynthesis.cancel();setSpeakingStep(null)};
+  useEffect(()=>()=>{speakRequestRef.current+=1;stepAudioRef.current?.pause();if(typeof window!=="undefined"&&"speechSynthesis" in window)window.speechSynthesis.cancel()},[activeRecipe?.id]);
+  const speakStep=async(index:number,text:string)=>{
+    const wasSpeaking=speakingStep===index;
+    stopSpeaking();
+    if(wasSpeaking)return;
+    const request=speakRequestRef.current;
+    const phrase=`Step ${index+1}. ${text}`;
+    const finish=()=>setSpeakingStep(current=>current===index?null:current);
+    const browserVoice=()=>{if(!("speechSynthesis" in window)){finish();return}const utterance=new SpeechSynthesisUtterance(phrase);utterance.onend=finish;utterance.onerror=finish;window.speechSynthesis.speak(utterance)};
+    setSpeakingStep(index);
+    // Start playback inside the tap so phones allow the audio that arrives later.
+    const audio=stepAudioRef.current||(stepAudioRef.current=new Audio());
+    audio.src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+    audio.play().catch(()=>{});
+    try{
+      let url=stepVoiceCacheRef.current.get(phrase);
+      if(!url){
+        const response=await fetch("/api/speech",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:phrase})});
+        if(!response.ok)throw new Error("Natural voice unavailable");
+        url=URL.createObjectURL(await response.blob());
+        stepVoiceCacheRef.current.set(phrase,url);
+      }
+      if(request!==speakRequestRef.current)return;
+      audio.onended=finish;
+      audio.onerror=()=>{if(request===speakRequestRef.current)browserVoice()};
+      audio.src=url;
+      await audio.play();
+    }catch{
+      if(request===speakRequestRef.current)browserVoice();
+    }
+  };
   const toggleStepDone=(index:number)=>{if(activeRecipe)setCookingProgress(previous=>toggleCookingItem(previous,activeWeekKey,activeRecipe.id,"steps",index))};
   const toggleIngredientDone=(recipeId:string,index:number)=>{
     setCookingProgress(previous=>toggleCookingItem(previous,activeWeekKey,recipeId,"ingredients",index));
