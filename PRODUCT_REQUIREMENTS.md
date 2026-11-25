@@ -170,7 +170,9 @@ Examples:
 
 The product must support separate plans for this week and next week.
 
-- Let users add and remove recipes from either week.
+- Let users add and remove recipes from either week. On phones, each planned
+  recipe card always shows its remove (X) button at the top right; on larger
+  screens it appears on hover or focus.
 - Show the number of selected meals in the Plan navigation.
 - Let users add a free-form date or day for each meal using the placeholder
   `Add date`.
