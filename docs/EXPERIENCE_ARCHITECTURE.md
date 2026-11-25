@@ -188,6 +188,9 @@ matching border (`#d6f59a`), rather than the active recipe's derived palette.
   the rounded hover surfaces. They remain individually collapsible and move
   ingredients when checked or unchecked.
 - Directions remain ordered, checkable steps with any associated step image.
+  Each step row has a separate listen button at its top right (a sibling of the
+  checkbox row, so it does not toggle completion); it is hidden when browser
+  speech is unavailable.
   Keep direction controls slightly inset within their rounded hover surfaces;
   completion feedback stays with the directions experience.
 - Keep ingredient and direction checkmarks separate for each recipe and

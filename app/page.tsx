@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef, type CSSProperties } from "react";
-import { ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, ChevronDown, ChevronUp, Clock, History as HistoryIcon, Minus, MoreHorizontal, Pencil, Plus, RefreshCw, Save, Search, ShoppingBasket, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, CalendarDays, Check, ChefHat, ChevronDown, ChevronUp, Clock, History as HistoryIcon, Minus, MoreHorizontal, Pencil, Plus, RefreshCw, Save, Search, ShoppingBasket, Square, Trash2, Volume2, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox, CheckboxIndicator } from "@/components/ui/checkbox";
@@ -827,6 +827,11 @@ export default function Home() {
   const toggle=(id:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();const adding=!plan.selected.includes(id);return{...all,[activeWeekKey]:{...plan,selected:adding?[...plan.selected,id]:plan.selected.filter(recipeId=>recipeId!==id),done:adding?(plan.done||[]):(plan.done||[]).filter(recipeId=>recipeId!==id),servings:{...plan.servings,[id]:plan.servings[id]||4},checked:adding&&plan.selected.length===0?[]:plan.checked}}});
   const changeServings=(id:string,delta:number)=>setServings(v=>({...v,[id]:Math.max(1,(v[id]||4)+delta)}));
   const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setRecipeEditDrafts({});setRecipeEditError("");setRecipeTab("ingredients");window.scrollTo({top:0,behavior:"smooth"})};
+  const [speechAvailable,setSpeechAvailable]=useState(false);
+  useEffect(()=>{setSpeechAvailable("speechSynthesis" in window)},[]);
+  const [speakingStep,setSpeakingStep]=useState<number|null>(null);
+  useEffect(()=>()=>{if(typeof window!=="undefined"&&"speechSynthesis" in window)window.speechSynthesis.cancel()},[activeRecipe?.id]);
+  const speakStep=(index:number,text:string)=>{if(typeof window==="undefined"||!("speechSynthesis" in window))return;const synth=window.speechSynthesis;const wasSpeaking=speakingStep===index;synth.cancel();if(wasSpeaking){setSpeakingStep(null);return}const utterance=new SpeechSynthesisUtterance(`Step ${index+1}. ${text}`);utterance.onend=()=>setSpeakingStep(current=>current===index?null:current);utterance.onerror=()=>setSpeakingStep(current=>current===index?null:current);setSpeakingStep(index);synth.speak(utterance)};
   const toggleStepDone=(index:number)=>{if(activeRecipe)setCookingProgress(previous=>toggleCookingItem(previous,activeWeekKey,activeRecipe.id,"steps",index))};
   const toggleIngredientDone=(recipeId:string,index:number)=>{
     setCookingProgress(previous=>toggleCookingItem(previous,activeWeekKey,recipeId,"ingredients",index));
@@ -1207,7 +1212,7 @@ export default function Home() {
                                 ? {backgroundColor:activeRecipePalette.controlColor,borderColor:activeRecipePalette.checkboxChecked}
                                 : {};
                               return (
-                                <li key={index}>
+                                <li key={index} className="relative">
                                   <button
                                     type="button"
                                     role="checkbox"
@@ -1215,7 +1220,7 @@ export default function Home() {
                                     aria-label={`Step ${index+1}: ${text}`}
                                     onClick={()=>toggleStepDone(index)}
                                     style={stepStyle}
-                                    className={`flex w-full min-w-0 flex-wrap items-start gap-3 rounded-3xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 ${done ? "" : "border-[#d6d6d6] bg-white"} ${done ? "" : activeRecipePalette.controlHoverLight}`}
+                                    className={`flex w-full min-w-0 flex-wrap items-start gap-3 rounded-3xl border py-3 pl-3 pr-14 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35 ${done ? "" : "border-[#d6d6d6] bg-white"} ${done ? "" : activeRecipePalette.controlHoverLight}`}
                                   >
                                     <CheckboxIndicator checked={done} checkedBackgroundColor={activeRecipePalette.checkboxChecked} borderColor={done?activeRecipePalette.checkboxChecked:"#b5b5b5"} className="mt-1"/>
                                     <span className="min-w-0 flex-1">
@@ -1223,6 +1228,7 @@ export default function Home() {
                                       {image&&!done&&<img src={image} alt="" className="mt-3 max-h-72 w-full rounded-xl object-cover"/>}
                                     </span>
                                   </button>
+                                  {speechAvailable&&<button type="button" onClick={()=>speakStep(index,text)} aria-pressed={speakingStep===index} aria-label={speakingStep===index?`Stop reading step ${index+1}`:`Listen to step ${index+1}`} className="absolute right-2 top-2 flex size-11 items-center justify-center rounded-full text-[#151b17] transition hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35">{speakingStep===index?<Square size={18} fill="currentColor"/>:<Volume2 size={20}/>}</button>}
                                 </li>
                               );
                             })}
