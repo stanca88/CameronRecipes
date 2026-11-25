@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { subscribeToShoppingList, subscribeToGlobalShoppingList, saveShoppingList, toggleShoppingItem, subscribeToWeeklyPlan, saveWeeklyPlan, fetchWeeklyPlan, subscribeToHistory, fetchHistory, saveHistoryWeek } from "@/app/lib/realtime";
 import { planDays, readDoneRecipes, selectedDoneRecipes, toggleDoneRecipe } from "@/app/lib/weekly-plan";
+import { clearRecipeProgress, parseCookingProgress, toggleCookingItem, type CookingProgress } from "@/app/lib/cooking-progress";
 import { MOCK_RECIPES } from "@/app/lib/mock-recipes";
 import { formatRecipeTime } from "@/app/lib/recipe-time.mjs";
 import { extractRecipePalette, type RecipePalette } from "@/app/lib/recipe-palette.mjs";
@@ -492,9 +493,9 @@ export default function Home() {
   const [activeRecipe,setActiveRecipe]=useState<Recipe|null>(null);
   const [recipeToDelete,setRecipeToDelete]=useState<Recipe|null>(null);
   const [recipeTab,setRecipeTab]=useState<"ingredients"|"directions">("ingredients");
-  const [checkedIngredients,setCheckedIngredients]=useState<Record<string,number[]>>({});
+  const [cookingProgress,setCookingProgress]=useState<CookingProgress>({});
+  const [cookingProgressLoaded,setCookingProgressLoaded]=useState(false);
   const [ingredientSectionsCollapsed,setIngredientSectionsCollapsed]=useState<Record<"toUse"|"used",boolean>>({toUse:false,used:false});
-  const [completedSteps,setCompletedSteps]=useState<number[]>([]);
   const [addMode,setAddMode]=useState<"url"|"review"|"manual">("url");
   const [importing,setImporting]=useState(false);
   const [importError,setImportError]=useState("");
@@ -550,6 +551,9 @@ export default function Home() {
     return()=>observer.disconnect();
   },[view]);
   const activeWeekKey=weekKey(weekOffset);
+  const activeCookingProgress=activeRecipe?cookingProgress[activeWeekKey]?.[activeRecipe.id]:undefined;
+  const checkedIngredients=activeCookingProgress?.ingredients||[];
+  const completedSteps=activeCookingProgress?.steps||[];
   useEffect(()=>{
     let active=true;
     const paletteRequests=recipes.map(async recipe=>{
@@ -621,7 +625,21 @@ export default function Home() {
   const headerImageIndex=headerTick%headerImages.length;
   const headerTagline=headerTaglines[headerTick%headerTaglines.length];
 
-  useEffect(()=>{try{const params=new URLSearchParams(window.location.search);const localHost=window.location.hostname==="localhost"||window.location.hostname==="127.0.0.1";const useMockRecipes=localHost&&params.get("mockRecipes")==="1";setMockCategoryPreview(params.get("mockCategory")==="1");setMockRecipePreview(useMockRecipes);if(params.get("view")==="shop")setView("shop");if(params.get("resetLocal")==="1"){localStorage.removeItem("cameron-family-table");params.delete("resetLocal");const newUrl=window.location.pathname+(params.toString()?"?"+params.toString():"");window.history.replaceState({},"",newUrl);}const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],done:[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}loadSharedRecipes(useMockRecipes)}finally{setLoaded(true)}},[]);
+  useEffect(()=>{try{const params=new URLSearchParams(window.location.search);const localHost=window.location.hostname==="localhost"||window.location.hostname==="127.0.0.1";const useMockRecipes=localHost&&params.get("mockRecipes")==="1";setMockCategoryPreview(params.get("mockCategory")==="1");setMockRecipePreview(useMockRecipes);if(params.get("view")==="shop")setView("shop");if(params.get("resetLocal")==="1"){localStorage.removeItem("cameron-family-table");localStorage.removeItem("cameron-cooking-progress");params.delete("resetLocal");const newUrl=window.location.pathname+(params.toString()?"?"+params.toString():"");window.history.replaceState({},"",newUrl);}const raw=localStorage.getItem("cameron-family-table");if(raw){const s=JSON.parse(raw);setHistory(s.history||[]);setPlans(s.plans||{[weekKey(0)]:{selected:s.selected||[],done:[],servings:s.servings||Object.fromEntries((s.selected||[]).map((id:string)=>[id,4])),checked:s.checked||[],chefs:{},days:{}}})}loadSharedRecipes(useMockRecipes)}finally{setLoaded(true)}},[]);
+  useEffect(()=>{
+    if(!loaded)return;
+    if(mockRecipePreview){setCookingProgressLoaded(true);return}
+    try{
+      const raw=localStorage.getItem("cameron-cooking-progress");
+      if(raw)setCookingProgress(parseCookingProgress(raw));
+      setCookingProgressLoaded(true);
+    }catch(error){console.error("Failed to load cooking progress:",error)}
+  },[loaded,mockRecipePreview]);
+  useEffect(()=>{
+    if(!cookingProgressLoaded||mockRecipePreview)return;
+    try{localStorage.setItem("cameron-cooking-progress",JSON.stringify(cookingProgress))}
+    catch(error){console.error("Failed to save cooking progress:",error)}
+  },[cookingProgress,cookingProgressLoaded,mockRecipePreview]);
   const [sharedLinkApplied,setSharedLinkApplied]=useState(false);
   useEffect(()=>{
     if(!loaded||sharedLinkApplied)return;
@@ -808,14 +826,10 @@ export default function Home() {
 
   const toggle=(id:string)=>setPlans(all=>{const plan=all[activeWeekKey]||emptyPlan();const adding=!plan.selected.includes(id);return{...all,[activeWeekKey]:{...plan,selected:adding?[...plan.selected,id]:plan.selected.filter(recipeId=>recipeId!==id),done:adding?(plan.done||[]):(plan.done||[]).filter(recipeId=>recipeId!==id),servings:{...plan.servings,[id]:plan.servings[id]||4},checked:adding&&plan.selected.length===0?[]:plan.checked}}});
   const changeServings=(id:string,delta:number)=>setServings(v=>({...v,[id]:Math.max(1,(v[id]||4)+delta)}));
-  const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setRecipeEditDrafts({});setRecipeEditError("");setRecipeTab("ingredients");setCompletedSteps([]);window.scrollTo({top:0,behavior:"smooth"})};
-  const toggleStepDone=(index:number)=>{setCompletedSteps(prev=>prev.includes(index)?prev.filter(i=>i!==index):[...prev,index])};
+  const openRecipe=(recipe:Recipe)=>{setActiveRecipe(recipe);setRecipeEditDrafts({});setRecipeEditError("");setRecipeTab("ingredients");window.scrollTo({top:0,behavior:"smooth"})};
+  const toggleStepDone=(index:number)=>{if(activeRecipe)setCookingProgress(previous=>toggleCookingItem(previous,activeWeekKey,activeRecipe.id,"steps",index))};
   const toggleIngredientDone=(recipeId:string,index:number)=>{
-    setCheckedIngredients(previous=>{
-      const current=new Set(previous[recipeId]||[]);
-      if(current.has(index))current.delete(index);else current.add(index);
-      return {...previous,[recipeId]:Array.from(current)};
-    });
+    setCookingProgress(previous=>toggleCookingItem(previous,activeWeekKey,recipeId,"ingredients",index));
   };
   const parseIngredientLines=(value:string)=>value.split("\n").map(line=>line.trim()).filter(Boolean).map(parseIngredientLine);
   const parsedIngredients=()=>parseIngredientLines(ingredients);
@@ -831,7 +845,7 @@ export default function Home() {
   const beginRecipeEdit=(recipe:Recipe|null=activeRecipe)=>{
     if(!recipe)return;
     const sameRecipe=activeRecipe?.id===recipe.id;
-    if(!sameRecipe){setActiveRecipe(recipe);setRecipeTab("ingredients");setCompletedSteps([]);window.scrollTo({top:0,behavior:"smooth"})}
+    if(!sameRecipe){setActiveRecipe(recipe);setRecipeTab("ingredients");window.scrollTo({top:0,behavior:"smooth"})}
     setRecipeEditDrafts({
       details:{title:recipe.title,tag:recipe.tag||"",time:["family recipe","time not provided"].includes(recipe.time.trim().toLowerCase())?"":recipe.time||"",image:recipe.image||"",sourceUrl:recipe.sourceUrl||"",sourceName:recipe.sourceName||""},
       ingredients:(recipe.ingredients||[]).map(ingredientLineFor).join("\n"),
@@ -882,8 +896,7 @@ export default function Home() {
       }
       setRecipes(previous=>previous.map(current=>current.id===recipe.id?{...current,...updatedFields}:current));
       setActiveRecipe(previous=>previous&&previous.id===recipe.id?{...previous,...updatedFields}:previous);
-      setCheckedIngredients(previous=>({...previous,[recipe.id]:[]}));
-      setCompletedSteps([]);
+      setCookingProgress(previous=>clearRecipeProgress(previous,recipe.id));
       setRecipeEditDrafts({});
     }catch(error){
       const message=error instanceof Error?error.message:"Failed to save recipe changes";
@@ -1150,7 +1163,7 @@ export default function Home() {
                               const isCollapsed=ingredientSectionsCollapsed[sectionKey];
                               const items=(Array.isArray(activeRecipe.ingredients)?activeRecipe.ingredients:[])
                                 .map((raw,itemIndex)=>({item:normalizeIngredient(raw),index:itemIndex}))
-                                .filter(({item,index:itemIndex})=>item&&(index===0?!((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex)):((checkedIngredients[activeRecipe.id]||[]).includes(itemIndex))));
+                                .filter(({item,index:itemIndex})=>item&&(index===0?!checkedIngredients.includes(itemIndex):checkedIngredients.includes(itemIndex)));
                               return <section key={heading} className="overflow-hidden">
                                 <button type="button" onClick={()=>setIngredientSectionsCollapsed(previous=>({...previous,[sectionKey]:!previous[sectionKey]}))} aria-expanded={!isCollapsed} className="flex w-full cursor-pointer items-center justify-between rounded-full px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111613]/35">
                                   <span className="flex items-center gap-2 font-sans text-2xl font-bold text-[var(--recipe-time)]">{heading}<span className="text-sm font-sans font-medium text-[#707b76]">({items.length})</span></span>
@@ -1161,7 +1174,7 @@ export default function Home() {
                                     if(!item)return null;
                                     const amount=item.amount*(servings[activeRecipe.id]||4)/(activeRecipe.serves||4);
                                     const phrase=formatIngredientPhrase(item,amount);
-                                    const done=(checkedIngredients[activeRecipe.id]||[]).includes(itemIndex);
+                                    const done=checkedIngredients.includes(itemIndex);
                                     return <label key={itemIndex} className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-3xl px-3 py-3 text-xl leading-relaxed transition sm:text-base ${done?"text-[#707b76] line-through":`text-[#151b17] ${activeRecipePalette.controlHoverLight}`}`}>
                                       <Checkbox className="size-6 shrink-0" checked={done} onCheckedChange={()=>toggleIngredientDone(activeRecipe.id,itemIndex)} style={{backgroundColor:done?activeRecipePalette.checkboxChecked:"#ffffff",borderColor:done?activeRecipePalette.checkboxChecked:"#b5b5b5"}} aria-label={`${done?"Uncheck":"Check off"} ${phrase}`}/>
                                       <span className="min-w-0 flex-1">{phrase}</span>

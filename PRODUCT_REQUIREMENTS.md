@@ -222,6 +222,10 @@ The recipe detail view must be usable while cooking.
   moving ingredients between them when checked or unchecked.
 - Present direction steps as compact checkable rows.
 - Let users tap a direction step to mark it complete or incomplete.
+- Keep ingredient and direction checkmarks for each recipe and selected week
+  when navigating between recipes or reloading on the same device. Reset a
+  recipe's checkmarks when its contents are saved after editing. Cooking
+  checkmarks are device-local and do not synchronize across devices.
 - Show a completion message when every direction is checked.
 - When a recipe is already planned, label its detail action with the week start,
   for example, `Added to Nov 15th week`.
@@ -532,6 +536,9 @@ cache once and then removes itself from the URL.
 
 - Recipe URL import depends on third-party page structure and access rules, so
   not every URL can be imported.
+- For older Smitten Kitchen pages without structured recipe metadata, the
+  importer also recognizes the site's printable article layout. The extracted
+  recipe remains editable in the normal import review.
 - Synchronization currently uses periodic polling rather than push-based
   realtime subscriptions.
 - The current product has no sign-in or per-user account experience; it is a
