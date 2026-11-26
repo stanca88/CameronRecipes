@@ -840,7 +840,7 @@ export default function Home() {
     stopSpeaking();
     if(wasSpeaking)return;
     const request=speakRequestRef.current;
-    const phrase=`Step ${index+1}. ${text}`;
+    const phrase=text;
     const finish=()=>setSpeakingStep(current=>current===index?null:current);
     const browserVoice=()=>{if(!("speechSynthesis" in window)){finish();return}const utterance=new SpeechSynthesisUtterance(phrase);utterance.onend=finish;utterance.onerror=finish;window.speechSynthesis.speak(utterance)};
     setSpeakingStep(index);
