@@ -1,8 +1,11 @@
 const maxCharacters = 1200;
 
+const escapeXml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[char] as string);
+
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return Response.json({ error: "Natural voice is not configured." }, { status: 503 });
+  const apiKey = process.env.AZURE_SPEECH_KEY;
+  const region = process.env.AZURE_SPEECH_REGION?.trim();
+  if (!apiKey || !region || !/^[a-z0-9-]+$/i.test(region)) return Response.json({ error: "Natural voice is not configured." }, { status: 503 });
 
   let text = "";
   try {
@@ -15,27 +18,24 @@ export async function POST(request: Request) {
   if (text.length > maxCharacters) return Response.json({ error: "That step is too long to read aloud." }, { status: 413 });
 
   try {
-    const upstream = await fetch("https://api.openai.com/v1/audio/speech", {
+    const upstream = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
       method: "POST",
-      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-4o-mini-tts",
-        voice: "coral",
-        input: text,
-        instructions: "Speak warmly and clearly, like a friendly cook reading a recipe step.",
-        response_format: "mp3",
-      }),
+      headers: {
+        "ocp-apim-subscription-key": apiKey,
+        "content-type": "application/ssml+xml",
+        "x-microsoft-outputformat": "audio-24khz-48kbitrate-mono-mp3",
+        "user-agent": "cameron-recipes",
+      },
+      body: `<speak version="1.0" xml:lang="en-US"><voice name="en-US-AvaMultilingualNeural">${escapeXml(text)}</voice></speak>`,
       signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok || !upstream.body) {
-      const detail = await upstream.json().then((body) => body?.error, () => undefined).catch(() => undefined);
-      const reason = { status: upstream.status, code: detail?.code ?? null, type: detail?.type ?? null };
-      console.error("OpenAI speech request failed", reason);
-      return Response.json({ error: "Natural voice is unavailable right now.", reason }, { status: 502 });
+      console.error("Azure speech request failed", upstream.status);
+      return Response.json({ error: "Natural voice is unavailable right now.", status: upstream.status }, { status: 502 });
     }
     return new Response(upstream.body, { headers: { "content-type": "audio/mpeg", "cache-control": "private, max-age=86400" } });
   } catch (error) {
-    console.error("OpenAI speech request error", error);
+    console.error("Azure speech request error", error);
     return Response.json({ error: "Natural voice is unavailable right now." }, { status: 502 });
   }
 }
