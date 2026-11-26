@@ -28,8 +28,10 @@ export async function POST(request: Request) {
       signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok || !upstream.body) {
-      console.error("OpenAI speech request failed", upstream.status);
-      return Response.json({ error: "Natural voice is unavailable right now." }, { status: 502 });
+      const detail = await upstream.json().then((body) => body?.error, () => undefined).catch(() => undefined);
+      const reason = { status: upstream.status, code: detail?.code ?? null, type: detail?.type ?? null };
+      console.error("OpenAI speech request failed", reason);
+      return Response.json({ error: "Natural voice is unavailable right now.", reason }, { status: 502 });
     }
     return new Response(upstream.body, { headers: { "content-type": "audio/mpeg", "cache-control": "private, max-age=86400" } });
   } catch (error) {
