@@ -226,8 +226,8 @@ The recipe detail view must be usable while cooking.
 - Let users tap a direction step to mark it complete or incomplete.
 - Give each step a listen button that reads only the step text aloud, without a spoken step number
   in a natural human-sounding voice from the server-side `/api/speech` route
-  (Azure AI Speech, configured with the `AZURE_SPEECH_KEY` and
-  `AZURE_SPEECH_REGION` environment variables). If that voice is not configured or fails, fall back to the
+  (Google Cloud Text-to-Speech, configured with the `GOOGLE_TTS_API_KEY`
+  environment variable). If that voice is not configured or fails, fall back to the
   browser's built-in speech. Tapping it again stops reading, and
   starting another step or leaving the recipe stops the current one. Hide the
   button where speech is unavailable. Listening never checks the step off.
